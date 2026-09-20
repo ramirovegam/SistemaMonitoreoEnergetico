@@ -1,0 +1,18 @@
+# Python
+ven/
+__pycache__/
+*.pyc
+
+# Variables y credenciales
+.*nv
+
+# Node / React
+node_modules/
+
+* Build
+dist/
+
+# VS Code
+.vscode/
+`*
+node_modules
