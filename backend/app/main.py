@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routers.zonas import router as zonas_router
+
+
 app = FastAPI(
     title="SIMET API",
     description="API REST para HyperDataSynthetic",
     version="1.0.0"
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(zonas_router)
 
 
 @app.get("/")
