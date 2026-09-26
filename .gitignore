@@ -1,18 +1,19 @@
 # Python
 ven/
+.venv/
 __pycache__/
 *.pyc
 
 # Variables y credenciales
-.*nv
+.env
+.env.*
+!.env.example
 
 # Node / React
 node_modules/
 
-* Build
+# Build
 dist/
 
 # VS Code
 .vscode/
-`*
-node_modules
