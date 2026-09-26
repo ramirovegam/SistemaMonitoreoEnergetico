@@ -1,56 +1,97 @@
-================================
-ARQUITECTURA DE LA APLICACIÓN
-================================
-La aplicación está dividida en tres capas principales:
+# SIMET - Sistema de Monitoreo Energético
 
-👤 Usuario
-   ↓
-⚛️ Frontend - React + TypeScript + Vite
-   ↓  Solicitudes HTTP / JSON
-⚡ Backend - Python + FastAPI
-   ↓  Consultas SQL
-🐘 Base de datos - PostgreSQL
-   ↑
-⚡ FastAPI procesa y devuelve los datos en JSON
-   ↑
-⚛️ React recibe los datos y actualiza la interfaz
-   ↑
-👤 El usuario visualiza la información
+Panel web para monitorear el consumo eléctrico de hogares, medidores y zonas de Toluca como ciudad inteligente. Proyecto de la materia *Tópicos de Tecnologías de Datos*.
 
-🌐 El Frontend corre en: http://localhost:5173/
-⚡ El Backend corre en: http://127.0.0.1:8000/
-📖 Swagger (documentación de la API): http://127.0.0.1:8000/docs
+## Arquitectura
 
-El Frontend y el Backend funcionan como servidores independientes.
-React se comunica con FastAPI mediante peticiones HTTP, FastAPI consulta
-PostgreSQL y devuelve los resultados al Frontend en formato JSON.
-================================
-PASOS PARA CORRER LA APLICACION
-================================
-### Terminal 1
-# 1. Crear entorno virtual
+La aplicación se divide en tres capas que se ejecutan de forma independiente:
+
+| Capa          | Tecnología                                  | Dirección local              |
+|---------------|---------------------------------------------|------------------------------|
+| Frontend      | React 19, TypeScript, Vite, Tailwind CSS    | http://localhost:8443        |
+| Backend (API) | Python, FastAPI, SQLAlchemy                 | http://127.0.0.1:8000        |
+| Base de datos | PostgreSQL (esquema `energia`)              | Definida en `DATABASE_URL`   |
+
+Flujo de una petición:
+
+1. El usuario interactúa con la interfaz en React.
+2. React envía una petición HTTP al backend y recibe JSON.
+3. FastAPI consulta PostgreSQL mediante SQLAlchemy.
+4. FastAPI devuelve los resultados y React actualiza la interfaz.
+
+La documentación interactiva de la API (Swagger) está en http://127.0.0.1:8000/docs.
+
+## Requisitos
+
+- Python 3.10 o superior
+- Node.js 20.19 o superior (requerido por Vite 8)
+- PostgreSQL con el esquema `energia` creado
+
+## Configuración
+
+Crea un archivo `.env` en la raíz del proyecto con la cadena de conexión a la base de datos:
+
+```env
+DATABASE_URL=postgresql+psycopg://usuario:password@localhost:5432/simet
+```
+
+El backend no arranca si esta variable no está definida.
+
+## Ejecución en desarrollo
+
+Se necesitan dos terminales abiertas en la raíz del proyecto.
+
+### Terminal 1: backend
+
+```bash
+# Crear el entorno virtual
 python -m venv ven
 
-# 2. Activarlo
+# Activarlo (Windows, PowerShell)
 .\ven\Scripts\Activate.ps1
 
-# 3. Instalar dependencias del backend
+# Activarlo (Linux / macOS)
+source ven/bin/activate
+
+# Instalar dependencias
 pip install -r requirements.txt
 
-# 4. Levantar FastAPI
+# Levantar la API
 uvicorn backend.app.main:app --reload
+```
 
-ejemplo
-BACKEND
-http://127.0.0.1:8000
+La API queda disponible en http://127.0.0.1:8000 y Swagger en http://127.0.0.1:8000/docs.
 
-SWAGGER
-http://127.0.0.1:8000/docs
+### Terminal 2: frontend
 
-### Terminal 2
+```bash
+npm install
 npm run dev
+```
 
+La interfaz queda disponible en http://localhost:8443.
 
-FRONT
-VITE ready
-➜ Local: http://localhost:5173/
+## Endpoints disponibles
+
+| Método | Ruta          | Descripción                              |
+|--------|---------------|------------------------------------------|
+| GET    | `/`           | Verifica que el backend está activo      |
+| GET    | `/api/test`   | Prueba de comunicación con el frontend   |
+| GET    | `/api/zonas/` | Lista las zonas registradas              |
+
+## Estructura del proyecto
+
+```
+.
+├── backend/app/       API FastAPI (modelos, esquemas, routers y conexión a BD)
+├── src/
+│   ├── components/    Páginas de la interfaz
+│   ├── data/          Datos sintéticos usados mientras se conecta el backend
+│   └── services/      Cliente HTTP hacia la API
+├── requirements.txt   Dependencias de Python
+└── package.json       Dependencias y scripts del frontend
+```
+
+## Estado actual
+
+La mayoría de las pantallas todavía usan datos sintéticos generados en `src/data/synthetic.ts`. La integración con el backend se hará de forma incremental, empezando por el recurso de zonas.
