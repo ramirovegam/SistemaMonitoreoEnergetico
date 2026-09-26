@@ -19,7 +19,7 @@ Navegador
   -> PostgreSQL, esquema `energia`
 ```
 
-Frontend y backend son servidores independientes. El frontend llama al backend con `fetch` a una URL fija (`src/services/api.ts`).
+Frontend y backend son servidores independientes. El frontend llama al backend con `fetch` desde `src/services/api.ts`; la URL base sale de `VITE_API_URL` (por defecto `http://127.0.0.1:8000`).
 
 ## Estructura del repositorio
 
@@ -31,24 +31,25 @@ Frontend y backend son servidores independientes. El frontend llama al backend c
 │   ├── models/zona.py     Modelo ORM Zona  -> tabla energia.zona
 │   ├── schemas/zona.py    Esquema Pydantic ZonaResponse
 │   └── routers/zonas.py   GET /api/zonas/
+├── backend/sql/schema.sql DDL del esquema energia (crear tablas a mano con psql)
 ├── src/
 │   ├── main.tsx           Punto de entrada de React
 │   ├── App.tsx            Layout (sidebar, topbar) y navegación entre páginas
 │   ├── index.css          Tailwind, tokens de tema (@theme) y clases utilitarias propias
-│   ├── services/api.ts    Cliente HTTP hacia el backend
+│   ├── services/api.ts    Cliente HTTP hacia el backend (testBackend, obtenerZonas)
 │   ├── data/synthetic.ts  Tipos del dominio y datos simulados
 │   └── components/        Una página por archivo (ver tabla abajo)
+├── .env.example         Variables de entorno de backend y frontend
 ├── index.html
 ├── package.json           Scripts: dev, build, preview, format (oxfmt)
 ├── vite.config.ts         Alias @ -> src, servidor en 0.0.0.0:8443 (strictPort)
 ├── tsconfig.json          Modo strict, alias @/*
-└── requirements.txt       Dependencias de Python (codificado en UTF-16, ver Problemas conocidos)
+└── requirements.txt       Dependencias de Python (UTF-8)
 ```
 
 ## Backend
 
-- **Configuración**: `database.py` carga `.env` con `python-dotenv` y exige `DATABASE_URL`; si falta, lanza `RuntimeError` al importar. Ejemplo:
-  `DATABASE_URL=postgresql+psycopg://usuario:password@localhost:5432/simet`
+- **Configuración**: `database.py` carga `.env` con `python-dotenv` y exige `DATABASE_URL`; si falta, lanza `RuntimeError` al importar. La plantilla está en `.env.example`.
 - **CORS**: solo permite `http://localhost:8443` y `http://127.0.0.1:8443`. Si cambia el puerto del frontend hay que actualizar `main.py`.
 - **Endpoints**:
 
@@ -58,7 +59,7 @@ Frontend y backend son servidores independientes. El frontend llama al backend c
   | GET    | `/api/test`   | Prueba de comunicación con el frontend             |
   | GET    | `/api/zonas/` | Lista de zonas ordenadas por `id_zona`             |
 
-- **Tabla `energia.zona`**: `id_zona` (smallint, PK), `nombre` (varchar 60, único), `tipo_urbano` (varchar 20), `superficie_km2` (numeric 6,3), `factor_socioeconomico` (numeric 4,3). El esquema de la base no se crea desde el código: no hay migraciones ni `create_all`, la tabla debe existir previamente.
+- **Tabla `energia.zona`**: `id_zona` (smallint, PK), `nombre` (varchar 60, único), `tipo_urbano` (varchar 20), `superficie_km2` (numeric 6,3), `factor_socioeconomico` (numeric 4,3). No hay migraciones ni `create_all`: el DDL vive en `backend/sql/schema.sql` y se aplica con `psql`. Si cambias un modelo, actualiza también ese archivo.
 - **Patrón para agregar un recurso**: modelo en `models/`, esquema Pydantic con `from_attributes=True` en `schemas/`, router con `prefix="/api/<recurso>"` en `routers/` y `app.include_router(...)` en `main.py`. Usar el estilo SQLAlchemy 2 (`Mapped`, `mapped_column`, `select()` + `db.scalars()`).
 - Los imports internos son relativos (`from ..database import ...`), por eso el servidor se lanza desde la raíz del repo: `uvicorn backend.app.main:app --reload`.
 
@@ -94,7 +95,9 @@ Frontend y backend son servidores independientes. El frontend llama al backend c
 pip install -r requirements.txt
 uvicorn backend.app.main:app --reload     # http://127.0.0.1:8000, Swagger en /docs
 
-# Frontend
+psql "postgresql://usuario:password@localhost:5432/simet" -f backend/sql/schema.sql   # crear el esquema (sin "+psycopg")
+
+# Frontend (npm es el gestor oficial; no agregar otros lockfiles)
 npm install
 npm run dev        # http://localhost:8443
 npm run build
@@ -103,20 +106,15 @@ npm run format     # oxfmt
 
 No hay tests, linter ni CI configurados. Para validar cambios de TypeScript usar `npx tsc --noEmit`; para el backend, levantar uvicorn y probar en `/docs`.
 
-## Problemas conocidos
+## Pendientes
 
-- **Puerto del frontend**: `vite.config.ts` fija el puerto **8443**; versiones anteriores del README indicaban 5173.
-- **URL del backend hardcodeada** en `src/services/api.ts` (`http://127.0.0.1:8000`). Candidata a moverse a `import.meta.env.VITE_API_URL`.
-- **`requirements.txt` en UTF-16** (generado con `pip freeze` en PowerShell). pip lo lee, pero herramientas como `grep` o diffs de git lo muestran corrupto. Conviene reguardarlo en UTF-8.
-- **`.gitignore` con líneas mal formadas**: `* Build` (debería ser un comentario `# Build`, por lo que `dist/` sí se ignora pero la intención no es clara) y una línea con `` `* ``. El patrón `.*nv` ignora `.env` y `.venv`.
-- **Dos lockfiles** (`package-lock.json` y `pnpm-lock.yaml`). El README usa npm; elegir uno.
-- **`index.html`** conserva marcadores de exportación de Figma (`<!-- figma:... -->`), `lang` inválido y el título `sipretam`.
-- El frontend todavía no consume `/api/zonas/`.
-- No existe `.env.example` ni script SQL del esquema `energia`.
+- El frontend todavía no consume `/api/zonas/`. La función `obtenerZonas()` ya existe en `src/services/api.ts`, pero `Zones.tsx` depende del modelo sintético (`Norte | Centro | Sur | Industrial`, perfiles horarios, consumos), que no coincide con las columnas de `energia.zona`. Antes de conectarla hay que decidir cómo mapear un modelo al otro.
+- No hay datos semilla para `energia.zona`; `backend/sql/schema.sql` solo crea la estructura.
 
 ## Convenciones para agentes
 
 - Mantener el idioma español en código de dominio, UI y mensajes de commit (el historial está en español).
 - Al conectar una página al backend, crear la función en `src/services/api.ts` y reemplazar gradualmente el import de `synthetic.ts`, conservando los tipos del dominio.
 - No commitear `.env`, `ven/` ni `node_modules/`.
-- Si se cambia el puerto de cualquiera de los servidores, actualizar en conjunto `vite.config.ts`, CORS en `backend/app/main.py`, `src/services/api.ts`, el README y este archivo.
+- Si se cambia el puerto de cualquiera de los servidores, actualizar en conjunto `vite.config.ts`, CORS en `backend/app/main.py`, `VITE_API_URL` en `.env.example`, el README y este archivo.
+- Usar solo npm (`package-lock.json`). Al regenerar `requirements.txt` con `pip freeze` en PowerShell, forzar UTF-8: `pip freeze | Out-File -Encoding utf8 requirements.txt`.

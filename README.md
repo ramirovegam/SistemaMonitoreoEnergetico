@@ -29,13 +29,22 @@ La documentación interactiva de la API (Swagger) está en http://127.0.0.1:8000
 
 ## Configuración
 
-Crea un archivo `.env` en la raíz del proyecto con la cadena de conexión a la base de datos:
+1. Copia la plantilla de variables de entorno y ajusta los valores:
 
-```env
-DATABASE_URL=postgresql+psycopg://usuario:password@localhost:5432/simet
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-El backend no arranca si esta variable no está definida.
+   | Variable       | Uso                                                    |
+   |----------------|--------------------------------------------------------|
+   | `DATABASE_URL` | Conexión a PostgreSQL. El backend no arranca sin ella. |
+   | `VITE_API_URL` | URL base de la API que usa el frontend.                |
+
+2. Crea el esquema de la base de datos. `psql` usa la misma cadena de conexión, pero sin el prefijo `+psycopg`:
+
+   ```bash
+   psql "postgresql://usuario:password@localhost:5432/simet" -f backend/sql/schema.sql
+   ```
 
 ## Ejecución en desarrollo
 
@@ -84,6 +93,7 @@ La interfaz queda disponible en http://localhost:8443.
 ```
 .
 ├── backend/app/       API FastAPI (modelos, esquemas, routers y conexión a BD)
+├── backend/sql/       Script SQL del esquema de la base de datos
 ├── src/
 │   ├── components/    Páginas de la interfaz
 │   ├── data/          Datos sintéticos usados mientras se conecta el backend

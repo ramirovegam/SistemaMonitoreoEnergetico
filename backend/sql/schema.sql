@@ -1,5 +1,6 @@
 -- Esquema de la base de datos de SIMET
--- Ejecutar con: psql "$DATABASE_URL" -f backend/sql/schema.sql
+-- Ejecutar con: psql "postgresql://usuario:password@localhost:5432/simet" -f backend/sql/schema.sql
+-- (psql no acepta el prefijo "+psycopg" que usa DATABASE_URL)
 -- Debe mantenerse alineado con los modelos de backend/app/models/
 
 CREATE SCHEMA IF NOT EXISTS energia;
