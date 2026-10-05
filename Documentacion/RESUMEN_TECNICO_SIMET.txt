@@ -1,0 +1,574 @@
+RESUMEN TECNICO DEL TRABAJO REALIZADO EN SIMET
+================================================
+
+Proyecto: SIMET - Sistema de Monitoreo Energetico
+Objetivo general: conectar el frontend React con FastAPI y PostgreSQL, corregir el dashboard, recuperar su diseño original e integrar un mapa territorial real de Toluca.
+
+
+1. SITUACION INICIAL
+--------------------
+
+El proyecto tenia un dashboard visualmente atractivo, pero dependia de datos sinteticos importados desde:
+
+src/data/synthetic
+
+Entre esos datos sinteticos estaban:
+
+- summaryStats
+- zoneData
+- dailyData
+- alerts
+- meters
+
+El dashboard original incluia:
+
+- Encabezado naranja con resumen general.
+- Seis tarjetas de indicadores.
+- Grafica de perfil horario.
+- Grafica de consumo diario.
+- Modulo de mapa.
+- Consumo por zona.
+- Alertas recientes.
+
+Durante la conexion con el backend se sustituyo parte del dashboard, pero aparecieron varios problemas:
+
+- El mapa dejo de verse correctamente.
+- Desaparecio la seccion de consumo por zona.
+- Las graficas aparecian vacias.
+- Algunos indicadores aparecian en cero.
+- El diseño nuevo no conservaba la apariencia original.
+- Los filtros mostraban texto blanco sobre fondo blanco.
+- El frontend mostraba "Failed to fetch" cuando el endpoint fallaba.
+
+
+2. RESTAURACION DEL DASHBOARD
+-----------------------------
+
+Se reconstruyo Dashboard.tsx conservando la estructura visual del dashboard original, pero conectado a datos reales.
+
+Elementos restaurados:
+
+- Hero naranja con degradado.
+- Blobs decorativos.
+- Resumen del sistema.
+- Seis tarjetas de indicadores.
+- Perfil horario de demanda.
+- Consumo diario.
+- MapModule.
+- Consumo por zona.
+- Alertas recientes.
+- Colores naranja, morado, verde, rojo y amarillo.
+- Distribucion de tarjetas en tres columnas en escritorio.
+
+El dashboard dejo de usar directamente:
+
+summaryStats
+zoneData
+dailyData
+alerts
+meters
+
+Los datos comenzaron a obtenerse mediante:
+
+src/services/dashboardService.ts
+
+que consulta:
+
+GET /api/dashboard
+
+
+3. PROBLEMA DE LAS GRAFICAS VACIAS
+----------------------------------
+
+La base de datos contenia lecturas historicas hasta aproximadamente marzo de 2026, pero el backend utilizaba:
+
+datetime.now()
+
+Como la fecha de ejecucion era posterior, las consultas buscaban lecturas en un periodo sin datos.
+
+Por ejemplo, el backend preguntaba por el dia o mes actual del servidor, aunque la ultima lectura disponible pertenecia a marzo de 2026.
+
+La solucion fue obtener la fecha maxima disponible:
+
+referencia = db.scalar(
+    select(func.max(Lectura.ts))
+    .join(Medidor, Lectura.id_medidor == Medidor.id_medidor)
+    .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
+    .where(*zona_filtros)
+) or datetime.now()
+
+A partir de esa fecha se calculan:
+
+- Dia de la ultima lectura.
+- Ultimos siete dias disponibles.
+- Ultimos treinta dias disponibles.
+- Mes de la ultima lectura.
+- Ultimas veinticuatro horas con datos.
+
+Esto permitio que las graficas consultaran periodos donde realmente existen lecturas.
+
+
+4. PERFIL HORARIO POR ZONA
+--------------------------
+
+El dashboard sintetico mostraba tres lineas fijas:
+
+- Norte
+- Centro
+- Sur
+
+Como esas regiones no correspondian necesariamente con la base real, se modifico el router para identificar las tres zonas con mayor consumo durante las ultimas veinticuatro horas disponibles.
+
+El endpoint devuelve ahora una coleccion denominada:
+
+perfil_horario_zonas
+
+Cada registro contiene:
+
+- periodo
+- id_zona
+- zona_nombre
+- consumo_kwh
+
+React agrupa esos registros por hora y genera dinamicamente una linea para cada una de las tres zonas seleccionadas.
+
+Tambien se actualizaron:
+
+- dashboard_schema.py
+- dashboardService.ts
+- Dashboard.tsx
+
+para que todos compartieran la misma estructura de datos.
+
+
+5. ERROR DE TIPADO EN TYPESCRIPT
+--------------------------------
+
+Aparecio el error:
+
+Property 'perfil_horario_zonas' does not exist on type 'DashboardData'
+
+La causa fue que Dashboard.tsx ya esperaba el nuevo campo, pero dashboardService.ts todavia tenia la interfaz anterior.
+
+Se agregaron los tipos:
+
+PerfilZona
+fecha_referencia
+perfil_horario_zonas
+lecturas_dia
+
+Con esto se sincronizaron el schema de FastAPI, el servicio TypeScript y el componente React.
+
+
+6. ERROR SQL DE GROUP BY
+------------------------
+
+El endpoint devolvia HTTP 500 con el error de PostgreSQL:
+
+column "lectura.ts" must appear in the GROUP BY clause or be used in an aggregate function
+
+La causa fue utilizar tres expresiones SQLAlchemy distintas:
+
+func.date_trunc("hour", Lectura.ts)
+
+una en SELECT, otra en GROUP BY y otra en ORDER BY.
+
+SQLAlchemy genero parametros separados para cada expresion. PostgreSQL no las trato como una expresion identica.
+
+La solucion fue crear una sola expresion reutilizable:
+
+periodo_hora_zona = func.date_trunc(
+    "hour",
+    Lectura.ts,
+).label("periodo")
+
+Luego se utilizo el mismo objeto en:
+
+- select()
+- group_by()
+- order_by()
+
+Esto corrigio el error 500 del endpoint.
+
+
+7. ERROR DE UBICACION DEL ROUTER
+--------------------------------
+
+FastAPI mostro:
+
+ModuleNotFoundError: No module named 'backend.app.routers.dashboard'
+
+La causa fue que el archivo descargado se llamaba dashboard_router.py, pero main.py importaba:
+
+from .routers.dashboard import router as dashboard_router
+
+El archivo debia ubicarse y llamarse exactamente:
+
+backend/app/routers/dashboard.py
+
+El schema tambien debia quedar como:
+
+backend/app/schemas/dashboard.py
+
+
+8. CORRECCION DE LOS SELECTORES
+-------------------------------
+
+Los filtros del dashboard utilizaban texto blanco sobre un fondo que el navegador mostraba blanco al abrir las opciones.
+
+Se modificaron los selectores para utilizar:
+
+- Fondo blanco.
+- Texto oscuro.
+- Borde blanco visible sobre el hero naranja.
+- Fuente seminegrita.
+
+Clases principales:
+
+bg-white
+text-[#1a1a2e]
+font-semibold
+border-white/70
+
+Esto hizo legibles tanto el valor seleccionado como la lista desplegable.
+
+
+9. PRIMERA VERSION DEL MAPA
+---------------------------
+
+El MapModule inicial tenia pocas zonas o elementos sinteticos.
+
+Primero se creo una version conectada a:
+
+GET /api/zonas
+
+Esta version hacia lo siguiente:
+
+- Cargaba todas las zonas de PostgreSQL.
+- Mostraba hasta 46 zonas.
+- Permitía buscar por nombre o ID.
+- Mostraba filtros por estado.
+- Incluia un panel lateral.
+- Mostraba detalle de la zona seleccionada.
+
+Sin embargo, /api/zonas no contenia coordenadas ni geometria.
+
+Por ese motivo se probo una distribucion provisional con puntos y despues con poligonos esquematicos.
+
+Esa representacion servia para que ninguna zona desapareciera, pero no correspondia con limites reales.
+
+
+10. DECISION DE USAR CARTOGRAFIA REAL
+-------------------------------------
+
+Se decidio no presentar poligonos inventados como limites oficiales.
+
+Para dibujar zonas reales se requeria un archivo GeoJSON con:
+
+- FeatureCollection.
+- Features.
+- Propiedades de cada delegacion.
+- Geometria Polygon o MultiPolygon.
+- Coordenadas reales en formato longitud y latitud.
+
+Se identifico la capa:
+
+POLIGONOS_DELEGACIONES_UNIFICADO.geojson
+
+La capa incluye propiedades como:
+
+- fid
+- Delegacion
+- NOMBRE_DEL
+
+Y geometria MultiPolygon con coordenadas reales.
+
+
+11. GENERACION DEL ARCHIVO GEOJSON
+----------------------------------
+
+Como el archivo no podia subirse directamente al chat, se probaron varias alternativas:
+
+- Copiar el JSON desde el portapapeles.
+- Generarlo mediante PowerShell.
+- Generarlo mediante Python.
+- Descargarlo directamente desde la fuente.
+
+El metodo que funciono fue el script:
+
+descargar_zonas_toluca.py
+
+Este script:
+
+1. Prueba varias URL de descarga.
+2. Descarga el GeoJSON real.
+3. Verifica que sea una FeatureCollection.
+4. Comprueba que contenga Polygon o MultiPolygon.
+5. Elimina la tercera coordenada Z igual a 0.0.
+6. Conserva longitud y latitud.
+7. Agrega una propiedad de fuente.
+8. Crea automaticamente la carpeta public/data.
+9. Guarda el resultado como UTF-8.
+10. Vuelve a leer el archivo para validarlo.
+
+El resultado fue:
+
+public/data/zonas_toluca.geojson
+
+con:
+
+- Tipo: FeatureCollection.
+- 47 features.
+- 47 poligonos geograficos reales.
+- Tamaño aproximado generado: 44,175 bytes.
+
+El archivo puede comprobarse en desarrollo con:
+
+http://localhost:5173/data/zonas_toluca.geojson
+
+o con el puerto configurado por el proyecto:
+
+http://localhost:8443/data/zonas_toluca.geojson
+
+
+12. MAPMODULE CON POLIGONOS REALES
+----------------------------------
+
+Se reemplazo la generacion provisional de zonas por la carga directa del archivo:
+
+fetch("/data/zonas_toluca.geojson")
+
+MapModule.tsx utiliza ahora:
+
+- MapContainer
+- TileLayer
+- GeoJSON
+- useMap
+
+La capa base proviene de OpenStreetMap y los limites territoriales se dibujan con GeoJSON.
+
+El componente realiza:
+
+- Carga del GeoJSON desde public/data.
+- Validacion de FeatureCollection.
+- Ajuste automatico de limites mediante fitBounds.
+- Color diferente para cada poligono.
+- Cambio de opacidad al seleccionar.
+- Resaltado al pasar el cursor.
+- Tooltip con nombre y numero de delegacion.
+- Busqueda por nombre normalizado.
+- Listado lateral de delegaciones.
+- Panel de datos de la zona seleccionada.
+- Conteo de poligonos visibles.
+
+Se eliminaron del mapa final:
+
+- CircleMarker provisionales.
+- Puntos grises.
+- Cuadriculas generadas.
+- Funcion makePolygon.
+- Advertencia de ubicacion provisional.
+
+
+13. ERROR DE IMPORTACION DE LEAFLET
+-----------------------------------
+
+Aparecio el error TypeScript:
+
+'LeafletGeoJSON' cannot be used as a value because it was imported using 'import type'
+
+La causa fue importar GeoJSON de Leaflet solamente como tipo y luego intentar instanciarlo.
+
+Importacion incorrecta para crear objetos:
+
+import type { GeoJSON as LeafletGeoJSON } from "leaflet";
+
+La solucion fue importar la funcion real:
+
+import { geoJSON as createLeafletGeoJSON } from "leaflet";
+
+Y utilizar:
+
+const temporal = createLeafletGeoJSON(geojson);
+const bounds = temporal.getBounds();
+
+El tipo LeafletGeoJSON puede seguir importandose con import type para tipar referencias, pero no para crear una instancia en tiempo de ejecucion.
+
+
+14. DIFERENCIA ENTRE 46 ZONAS Y 47 POLIGONOS
+---------------------------------------------
+
+La tabla energia.zona contiene 46 zonas energeticas.
+
+El GeoJSON descargado contiene 47 poligonos territoriales.
+
+Estas clasificaciones no coinciden uno a uno.
+
+Ejemplos de coincidencia directa o aproximada:
+
+- SAN PABLO AUTOPAN -> San Pablo Autopan
+- SAN CRISTOBAL HUICHOCHITLAN -> San Cristobal Huichochitlan
+- SAN BUENA AVENTURA -> San Buenaventura
+- SAN MATEO OTZCACATIPAN -> San Mateo Otzacatipan
+
+Ejemplo de correspondencia no directa:
+
+- CENTRO HISTORICO -> Toluca de Lerdo
+
+Tambien existen zonas energeticas que pueden ser fraccionamientos, conjuntos urbanos o subdivisiones sin poligono independiente en la cartografia.
+
+Por ahora el mapa muestra los 47 poligonos territoriales reales.
+
+Para conectar consumo, medidores y alertas con cada poligono se necesita una tabla o archivo de equivalencias entre:
+
+- id_zona y nombre de energia.zona.
+- fid y NOMBRE_DEL del GeoJSON.
+
+
+15. SIMPLIFICACION DEL MENU PRINCIPAL
+-------------------------------------
+
+Se modifico App.tsx para retirar pantallas que ya no se utilizaran.
+
+Se eliminaron completamente del menu, imports, tipo Page y renderizado:
+
+- Gestion de Activos Energeticos.
+- Analitica.
+- Reportes.
+- Administracion.
+- Eficiencia Energetica.
+
+Se conservaron:
+
+- Dashboard.
+- Zonas.
+- Servicios.
+- Medidores.
+- Analisis Energetico.
+- Historial de Lecturas.
+- Alertas.
+- Configuracion Tarifaria.
+
+Como algunos archivos de componentes ya habian sido borrados, tambien se eliminaron sus imports para evitar errores del tipo:
+
+Cannot find module './components/...'
+
+
+16. ARCHIVOS PRINCIPALES MODIFICADOS O CREADOS
+----------------------------------------------
+
+Frontend:
+
+src/App.tsx
+src/components/Dashboard.tsx
+src/components/MapModule.tsx
+src/services/dashboardService.ts
+src/services/mapaService.ts
+public/data/zonas_toluca.geojson
+
+Backend:
+
+backend/app/routers/dashboard.py
+backend/app/schemas/dashboard.py
+backend/app/main.py, solo para registrar el router y CORS cuando fue necesario.
+
+Herramientas creadas:
+
+crear_zonas_toluca.ps1
+crear_zonas_toluca.py
+descargar_zonas_toluca.py
+
+El script finalmente utilizado fue:
+
+descargar_zonas_toluca.py
+
+
+17. FLUJO ACTUAL DEL DASHBOARD
+------------------------------
+
+1. React carga Dashboard.tsx.
+2. dashboardService.ts consulta /api/dashboard.
+3. FastAPI obtiene la ultima fecha de lectura disponible.
+4. FastAPI calcula indicadores, series y consumos por zona.
+5. React dibuja tarjetas y graficas.
+6. Dashboard.tsx inserta MapModule.
+7. MapModule solicita /data/zonas_toluca.geojson al servidor Vite.
+8. Leaflet dibuja los 47 MultiPolygon reales.
+9. El usuario puede buscar, seleccionar y resaltar delegaciones.
+
+
+18. COMANDOS DE VERIFICACION
+----------------------------
+
+Verificar FastAPI:
+
+python -m uvicorn backend.app.main:app --reload --port 8000
+
+Probar el dashboard:
+
+http://127.0.0.1:8000/api/dashboard?periodo=30d&limite_top=10
+
+Probar zonas:
+
+http://127.0.0.1:8000/api/zonas
+
+Verificar el GeoJSON con Python:
+
+python -c "import json; d=json.load(open('public/data/zonas_toluca.geojson', encoding='utf-8')); print(d['type'], len(d['features']))"
+
+Resultado esperado:
+
+FeatureCollection 47
+
+Compilar el frontend:
+
+npm run build
+
+Iniciar el frontend:
+
+npm run dev
+
+
+19. ESTADO FINAL
+----------------
+
+El sistema quedo con:
+
+- Dashboard conectado a FastAPI y PostgreSQL.
+- Diseño cercano al dashboard original.
+- Periodos basados en la ultima lectura disponible.
+- Graficas alimentadas con datos reales.
+- Perfil horario por zonas reales de mayor consumo.
+- Consumo por zona.
+- Alertas recientes.
+- Filtros visibles y legibles.
+- Mapa con poligonos geograficos reales.
+- Busqueda y seleccion en el mapa.
+- Menu simplificado y sin imports de pantallas eliminadas.
+
+
+20. SIGUIENTE MEJORA RECOMENDADA
+--------------------------------
+
+Crear una tabla de equivalencias entre las 46 zonas energeticas y los 47 poligonos territoriales.
+
+Ejemplo conceptual:
+
+id_zona | nombre_simet        | fid_geojson | nombre_geojson
+2       | San Pablo Autopan   | 36          | SAN PABLO AUTOPAN
+3       | San Cristobal...    | 28          | SAN CRISTOBAL HUICHOCHITLAN
+
+Con esa relacion, el mapa podria colorear cada poligono segun:
+
+- Consumo real.
+- Consumo por vivienda.
+- Alertas activas.
+- Medidores activos.
+- Calidad de enlace.
+- Variacion del periodo.
+
+Tambien podria incluir una linea de tiempo para reproducir el cambio de consumo por hora sobre el mapa.
+
+
+FIN DEL RESUMEN
+===============
