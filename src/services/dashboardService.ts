@@ -106,33 +106,91 @@ export interface DashboardData {
 }
 
 export interface DashboardFiltros {
-  periodo?: "hoy" | "7d" | "30d" | "mes";
-  desde?: string;
-  hasta?: string;
+  fecha?: string;
   idZona?: number;
   limiteTop?: number;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
+).replace(/\/$/, "");
+
+function esFechaISOValida(fecha: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+}
+
+async function obtenerMensajeError(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+
+    if (body && typeof body === "object" && "detail" in body) {
+      const detail = (body as { detail?: unknown }).detail;
+
+      if (typeof detail === "string") {
+        return detail;
+      }
+
+      if (Array.isArray(detail)) {
+        return detail
+          .map((item) => {
+            if (!item || typeof item !== "object") return String(item);
+
+            const error = item as {
+              loc?: Array<string | number>;
+              msg?: string;
+            };
+            const ubicacion = error.loc?.join(".");
+
+            return ubicacion
+              ? `${ubicacion}: ${error.msg ?? "Parámetro inválido"}`
+              : error.msg ?? "Parámetro inválido";
+          })
+          .join("; ");
+      }
+    }
+  } catch {
+    // La respuesta no contiene JSON válido.
+  }
+
+  return `Error HTTP ${response.status}: ${response.statusText || "No se pudo cargar el dashboard"}`;
+}
 
 export async function obtenerDashboard(
   filtros: DashboardFiltros = {},
+  signal?: AbortSignal,
 ): Promise<DashboardData> {
   const params = new URLSearchParams();
-  params.set("periodo", filtros.periodo ?? "mes");
-  if (filtros.desde) params.set("desde", filtros.desde);
-  if (filtros.hasta) params.set("hasta", filtros.hasta);
-  if (filtros.idZona) params.set("id_zona", String(filtros.idZona));
+
+  if (filtros.fecha) {
+    if (!esFechaISOValida(filtros.fecha)) {
+      throw new Error(
+        `La fecha "${filtros.fecha}" no tiene el formato esperado YYYY-MM-DD.`,
+      );
+    }
+
+    params.set("fecha", filtros.fecha);
+  }
+
+  if (filtros.idZona !== undefined) {
+    params.set("id_zona", String(filtros.idZona));
+  }
+
   params.set("limite_top", String(filtros.limiteTop ?? 10));
 
-  const response = await fetch(`${API_URL}/api/dashboard?${params}`);
+  const query = params.toString();
+  const url = `${API_URL}/api/dashboard${query ? `?${query}` : ""}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+    signal,
+  });
+
   if (!response.ok) {
-    let message = `Error HTTP ${response.status}`;
-    try {
-      const body = await response.json();
-      if (typeof body.detail === "string") message = body.detail;
-    } catch { /* respuesta sin JSON */ }
-    throw new Error(message);
+    throw new Error(await obtenerMensajeError(response));
   }
-  return response.json();
+
+  return (await response.json()) as DashboardData;
 }

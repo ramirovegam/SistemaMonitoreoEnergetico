@@ -13,6 +13,8 @@ from .routers.historial_lecturas import (
 from .routers.dashboard import (
     router as dashboard_router,
 )
+from .routers.calendario import router as calendario_router
+
 
 app = FastAPI(
     title="SIMET API",
@@ -45,6 +47,10 @@ app.include_router(
     historial_lecturas_router,
 )
 app.include_router(dashboard_router)
+app.include_router(
+    calendario_router,
+    prefix="/api",
+)
 
 @app.get("/")
 def inicio():
