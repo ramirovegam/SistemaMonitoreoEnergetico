@@ -155,7 +155,11 @@ function EnfocarZona({ zona }: { zona: ZonaFeature | null }) {
   return null;
 }
 
-export default function MapModule() {
+interface MapModuleProps {
+  onZonaSeleccionada?: (nombreZona: string) => void;
+}
+
+export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
   const [geojson, setGeojson] = useState<ZonasGeoJSON | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [seleccionada, setSeleccionada] = useState<ZonaFeature | null>(null);
@@ -308,7 +312,10 @@ export default function MapModule() {
       );
 
       layer.on({
-        click: () => setSeleccionada(feature),
+        click: () => {
+          setSeleccionada(feature);
+          onZonaSeleccionada?.(props.NOMBRE_DEL);
+        },
         mouseover: () => {
           const pathLayer = layer as Layer & {
             setStyle?: (options: PathOptions) => void;
@@ -523,7 +530,10 @@ export default function MapModule() {
                   <button
                     type="button"
                     key={props.fid}
-                    onClick={() => setSeleccionada(feature)}
+                    onClick={() => {
+                      setSeleccionada(feature);
+                      onZonaSeleccionada?.(props.NOMBRE_DEL);
+                    }}
                     className={`flex items-center gap-2 rounded-xl p-2 text-left transition-colors ${
                       activa ? "bg-[#fff4ea]" : "hover:bg-[#f8f9fc]"
                     }`}
