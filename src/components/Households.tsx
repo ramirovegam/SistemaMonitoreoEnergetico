@@ -1,1015 +1,149 @@
+import { useEffect, useMemo, useState } from "react";
 import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  Building2,
-  ChevronRight,
-  CircleDollarSign,
-  Gauge,
-  Leaf,
-  MapPin,
-  RefreshCw,
-  Search,
-  Sun,
-  Users,
-  X,
-  Zap,
+  Activity, Building2, ChevronLeft, ChevronRight, CircleDollarSign,
+  Gauge, Leaf, MapPin, RefreshCw, Search, Sun, X, Zap,
 } from "lucide-react";
+import { obtenerServicios, type Servicio } from "../services/serviciosService";
 
-import {
-  obtenerServicios,
-  type Servicio,
-} from "../services/serviciosService";
-
-
+const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 const PAGE_SIZE = 12;
+const COLORS = ["#ff8a1f", "#6366f1", "#10b981", "#f59e0b", "#06b6d4", "#ec4899", "#8b5cf6", "#14b8a6"];
+const BACKGROUNDS = ["#fff4ea", "#eef2ff", "#ecfdf5", "#fffbeb", "#ecfeff", "#fdf2f8", "#f5f3ff", "#f0fdfa"];
 
-
-const COLORS = [
-  "#ff8a1f",
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#06b6d4",
-  "#ec4899",
-  "#8b5cf6",
-  "#14b8a6",
-];
-
-
-const BACKGROUNDS = [
-  "#fff4ea",
-  "#eef2ff",
-  "#ecfdf5",
-  "#fffbeb",
-  "#ecfeff",
-  "#fdf2f8",
-  "#f5f3ff",
-  "#f0fdfa",
-];
-
-
-const fmt = (
-  value: number | null | undefined,
-) => {
-  if (value === null || value === undefined) {
-    return "Sin dato";
-  }
-
-  return value.toLocaleString("es-MX");
-};
-
-
-const formatText = (value: string): string => {
-  return value
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(
-      /\b\w/g,
-      (character: string) => character.toUpperCase(),
-    );
-};
-
-
-const getTypeIcon = (category: string) => {
-  const normalized = category.toUpperCase();
-
-  if (normalized.includes("RESIDENCIAL")) {
-    return "🏠";
-  }
-
-  if (normalized.includes("COMERCIAL")) {
-    return "🏪";
-  }
-
-  if (normalized.includes("INDUSTRIAL")) {
-    return "🏭";
-  }
-
-  if (normalized.includes("PUBLICO")) {
-    return "🏛️";
-  }
-
-  return "🏢";
-};
-
-
-interface ServicioDetailProps {
-  servicio: Servicio;
-  onClose: () => void;
+interface MedidorServicio {
+  id_medidor: number;
+  numero_serie: string;
+  es_principal: boolean;
+  estado: string;
+  calidad_enlace: number | null;
 }
 
+const fmt = (value: number | null | undefined): string => value == null ? "Sin dato" : value.toLocaleString("es-MX");
+const formatText = (value: string): string => value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, character => character.toUpperCase());
+const normalize = (value: string): string => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-function ServicioDetail({
-  servicio,
-  onClose,
-}: ServicioDetailProps) {
-  const color =
-    COLORS[
-      servicio.id_zona % COLORS.length
-    ];
-
-  const background =
-    BACKGROUNDS[
-      servicio.id_zona % BACKGROUNDS.length
-    ];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a2e]/30 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-
-        <div className="flex items-center justify-between p-6 border-b border-[#f0f1f7]">
-          <div className="flex items-center gap-3">
-
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
-              style={{ background }}
-            >
-              {getTypeIcon(
-                servicio.tipo_servicio_categoria,
-              )}
-            </div>
-
-            <div>
-              <h2
-                className="text-lg font-bold text-[#1a1a2e]"
-                style={{
-                  fontFamily:
-                    "Nunito, sans-serif",
-                }}
-              >
-                {servicio.nombre}
-              </h2>
-
-              <p className="text-xs text-[#9098b1] font-medium">
-                Servicio #{servicio.id_servicio}
-                {" · "}
-                RPU {servicio.rpu}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#f2f3f7] flex items-center justify-center hover:bg-[#e5e7ef] transition-colors"
-          >
-            <X
-              size={14}
-              className="text-[#9098b1]"
-            />
-          </button>
-        </div>
-
-
-        <div className="p-6 flex flex-col gap-5">
-
-          <div>
-            <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">
-              Información del servicio
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-              {[
-                {
-                  label: "Zona",
-                  value: servicio.zona_nombre,
-                  color,
-                  background,
-                },
-                {
-                  label: "Tipo de servicio",
-                  value:
-                    servicio.tipo_servicio_nombre,
-                  color: "#6366f1",
-                  background: "#eef2ff",
-                },
-                {
-                  label: "Categoría",
-                  value: formatText(
-                    servicio.tipo_servicio_categoria,
-                  ),
-                  color: "#10b981",
-                  background: "#ecfdf5",
-                },
-                {
-                  label: "Ocupación estimada",
-                  value:
-                    servicio.ocupacion_estimada ===
-                    null
-                      ? "Sin información"
-                      : `${fmt(
-                          servicio.ocupacion_estimada,
-                        )} personas`,
-                  color: "#606881",
-                  background: "#f8f9fc",
-                },
-                {
-                  label: "Carga contratada",
-                  value:
-                    `${servicio.carga_contratada_kw.toLocaleString(
-                      "es-MX",
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      },
-                    )} kW`,
-                  color: "#ff8a1f",
-                  background: "#fff4ea",
-                },
-                {
-                  label: "Sistema solar",
-                  value: servicio.tiene_solar
-                    ? "Sí"
-                    : "No",
-                  color: servicio.tiene_solar
-                    ? "#059669"
-                    : "#9098b1",
-                  background: servicio.tiene_solar
-                    ? "#ecfdf5"
-                    : "#f8f9fc",
-                },
-                {
-                  label: "ID de tarifa",
-                  value: `Tarifa #${servicio.id_tarifa}`,
-                  color: "#f59e0b",
-                  background: "#fffbeb",
-                },
-                {
-                  label: "Clave del tipo",
-                  value:
-                    servicio.tipo_servicio_clave,
-                  color: "#8b5cf6",
-                  background: "#f5f3ff",
-                },
-              ].map(item => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl p-3"
-                  style={{
-                    background: item.background,
-                  }}
-                >
-                  <p className="text-[11px] text-[#9098b1] font-medium mb-1">
-                    {item.label}
-                  </p>
-
-                  <p
-                    className="text-sm font-bold"
-                    style={{
-                      color: item.color,
-                    }}
-                  >
-                    {item.value}
-                  </p>
-                </div>
-              ))}
-
-            </div>
-          </div>
-
-
-          <div>
-            <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">
-              Parámetros del tipo de servicio
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-              <div className="rounded-2xl bg-[#fff4ea] p-4 text-center">
-                <Zap
-                  size={18}
-                  color="#ff8a1f"
-                  className="mx-auto mb-2"
-                />
-
-                <p className="text-base font-bold text-[#ff8a1f]">
-                  {servicio.consumo_base_kwh_h.toLocaleString(
-                    "es-MX",
-                    {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    },
-                  )}
-                </p>
-
-                <p className="text-[10px] text-[#9098b1] mt-1">
-                  Consumo base kWh/h
-                </p>
-              </div>
-
-
-              <div className="rounded-2xl bg-[#eef2ff] p-4 text-center">
-                <Gauge
-                  size={18}
-                  color="#6366f1"
-                  className="mx-auto mb-2"
-                />
-
-                <p className="text-base font-bold text-[#6366f1]">
-                  {servicio.factor_dispersion.toLocaleString(
-                    "es-MX",
-                    {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    },
-                  )}
-                </p>
-
-                <p className="text-[10px] text-[#9098b1] mt-1">
-                  Factor de dispersión
-                </p>
-              </div>
-
-
-              <div className="rounded-2xl bg-[#ecfdf5] p-4 text-center">
-                <Leaf
-                  size={18}
-                  color="#10b981"
-                  className="mx-auto mb-2"
-                />
-
-                <p className="text-base font-bold text-[#10b981]">
-                  {servicio.sensibilidad_temp.toLocaleString(
-                    "es-MX",
-                    {
-                      minimumFractionDigits: 3,
-                      maximumFractionDigits: 3,
-                    },
-                  )}
-                </p>
-
-                <p className="text-[10px] text-[#9098b1] mt-1">
-                  Sensibilidad térmica
-                </p>
-              </div>
-
-            </div>
-          </div>
-
-
-          <div>
-            <h3 className="text-sm font-semibold text-[#1a1a2e] mb-3">
-              Ubicación geográfica
-            </h3>
-
-            <div className="rounded-2xl bg-[#f8f9fc] p-4">
-              <div className="flex items-center gap-3">
-                <MapPin
-                  size={20}
-                  color={color}
-                />
-
-                <div>
-                  <p className="text-xs font-bold text-[#1a1a2e]">
-                    {servicio.zona_nombre}
-                  </p>
-
-                  <p className="text-[11px] text-[#9098b1] mt-1">
-                    Latitud:{" "}
-                    {servicio.latitud.toFixed(6)}
-                    {" · "}
-                    Longitud:{" "}
-                    {servicio.longitud.toFixed(6)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <div className="rounded-2xl border border-[#f0f1f7] p-4">
-            <p className="text-xs font-semibold text-[#1a1a2e]">
-              Nota sobre el consumo
-            </p>
-
-            <p className="text-[11px] text-[#9098b1] mt-1 leading-relaxed">
-              El consumo base pertenece al tipo de
-              servicio y representa un parámetro de
-              referencia. No corresponde a una
-              lectura real del servicio. El historial
-              de consumo podrá mostrarse cuando se
-              conecte la tabla de mediciones o
-              lecturas energéticas.
-            </p>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
+function typeImage(typeName: string, category: string): string {
+  const text = normalize(`${typeName} ${category}`);
+  if (text.includes("biblioteca")) return "/src/img/BibleotecaPublica.jpg";
+  if (text.includes("cultural")) return "/src/img/CentroCultural.jpg";
+  if (text.includes("deport")) return "/src/img/CentroDeportivo.jpg";
+  if (text.includes("alumbrado")) return "/src/img/CircuitoAlumbrado.jpg";
+  if (text.includes("departamento")) return "/src/img/Departamento.jpg";
+  if (text.includes("disen") || text.includes("designer")) return "/src/img/Designer.jpg";
+  if (text.includes("gobierno") || text.includes("gubernamental")) return "/src/img/EdificioGubernamental.png";
+  if (text.includes("escuela")) return "/src/img/EscuelaPublica.png";
+  if (text.includes("hospital") || text.includes("salud")) return "/src/img/Hospital.png";
+  if (text.includes("local") || text.includes("comercial")) return "/src/img/Local.png";
+  if (text.includes("mercado")) return "/src/img/Mercado.png";
+  if (text.includes("semaforo")) return "/src/img/NodoSemaforo.png";
+  if (text.includes("parque")) return "/src/img/Parque.png";
+  if (text.includes("planta") || text.includes("industrial")) return "/src/img/Planta.png";
+  if (text.includes("pozo")) return "/src/img/Pozo.png";
+  if (text.includes("unifamiliar")) return "/src/img/ViviendaUnifamiliar.png";
+  if (text.includes("residencial") || text.includes("vivienda")) return "/src/img/ViviendaAlto.png";
+  return "/src/img/EdificioGubernamental.png";
 }
 
-
-export default function Households() {
-  const [servicios, setServicios] =
-    useState<Servicio[]>([]);
-
-  const [search, setSearch] =
-    useState("");
-
-  const [filterZone, setFilterZone] =
-    useState("Todas");
-
-  const [filterType, setFilterType] =
-    useState("Todos");
-
-  const [filterSolar, setFilterSolar] =
-    useState("Todos");
-
-  const [selected, setSelected] =
-    useState<Servicio | null>(null);
-
-  const [page, setPage] =
-    useState(1);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState<string | null>(null);
-
-
-  const cargarServicios = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const datos =
-        await obtenerServicios();
-
-      setServicios(datos);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Error al cargar los servicios";
-
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+function normalizeMeter(row: Record<string, unknown>): MedidorServicio {
+  const state = String(row.estado ?? row.estado_operativo ?? row.estatus ?? (row.fecha_retiro ? "Retirado" : "Activo"));
+  return {
+    id_medidor: Number(row.id_medidor ?? 0),
+    numero_serie: String(row.numero_serie ?? row.serie ?? row.codigo ?? `MED-${String(row.id_medidor ?? 0).padStart(5, "0")}`),
+    es_principal: Boolean(row.es_principal ?? row.principal ?? row.tipo_medidor === "PRINCIPAL"),
+    estado: formatText(state),
+    calidad_enlace: row.calidad_enlace == null && row.calidad_senal == null ? null : Number(row.calidad_enlace ?? row.calidad_senal),
   };
+}
 
+interface ServicioDetailProps { servicio: Servicio; onClose: () => void; }
+function ServicioDetail({ servicio, onClose }: ServicioDetailProps) {
+  const [meters, setMeters] = useState<MedidorServicio[]>([]);
+  const [loadingMeters, setLoadingMeters] = useState(true);
+  const [meterError, setMeterError] = useState<string | null>(null);
+  const color = COLORS[servicio.id_zona % COLORS.length];
+  const background = BACKGROUNDS[servicio.id_zona % BACKGROUNDS.length];
 
   useEffect(() => {
-    cargarServicios();
-  }, []);
+    let active = true;
+    const loadMeters = async () => {
+      try {
+        setLoadingMeters(true); setMeterError(null);
+        const response = await fetch(`${API_URL}/api/medidores`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json() as Record<string, unknown>[];
+        const related = data.filter(row => Number(row.id_servicio) === servicio.id_servicio).map(normalizeMeter);
+        if (active) setMeters(related);
+      } catch (error) {
+        if (active) setMeterError(error instanceof Error ? error.message : "No se pudieron cargar los medidores");
+      } finally { if (active) setLoadingMeters(false); }
+    };
+    void loadMeters();
+    return () => { active = false; };
+  }, [servicio.id_servicio]);
 
-
-  const zonas = useMemo(() => {
-    return [
-      ...new Set(
-        servicios.map(
-          servicio =>
-            servicio.zona_nombre,
-        ),
-      ),
-    ].sort((a, b) =>
-      a.localeCompare(b, "es"),
-    );
-  }, [servicios]);
-
-
-  const tipos = useMemo(() => {
-    return [
-      ...new Set(
-        servicios.map(
-          servicio =>
-            servicio.tipo_servicio_nombre,
-        ),
-      ),
-    ].sort((a, b) =>
-      a.localeCompare(b, "es"),
-    );
-  }, [servicios]);
-
-
-  const filtered = useMemo(() => {
-    const query =
-      search.trim().toLowerCase();
-
-    return servicios.filter(servicio => {
-      const matchSearch =
-        query.length === 0 ||
-        servicio.nombre
-          .toLowerCase()
-          .includes(query) ||
-        servicio.rpu
-          .toLowerCase()
-          .includes(query) ||
-        String(servicio.id_servicio)
-          .includes(query) ||
-        servicio.zona_nombre
-          .toLowerCase()
-          .includes(query) ||
-        servicio.tipo_servicio_nombre
-          .toLowerCase()
-          .includes(query);
-
-      const matchZone =
-        filterZone === "Todas" ||
-        servicio.zona_nombre === filterZone;
-
-      const matchType =
-        filterType === "Todos" ||
-        servicio.tipo_servicio_nombre ===
-          filterType;
-
-      const matchSolar =
-        filterSolar === "Todos" ||
-        (filterSolar === "Con solar" &&
-          servicio.tiene_solar) ||
-        (filterSolar === "Sin solar" &&
-          !servicio.tiene_solar);
-
-      return (
-        matchSearch &&
-        matchZone &&
-        matchType &&
-        matchSolar
-      );
-    });
-  }, [
-    servicios,
-    search,
-    filterZone,
-    filterType,
-    filterSolar,
-  ]);
-
-
-  const pages = Math.max(
-    1,
-    Math.ceil(
-      filtered.length / PAGE_SIZE,
-    ),
-  );
-
-
-  const currentPage =
-    Math.min(page, pages);
-
-
-  const paged = filtered.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  );
-
-
-  const totalSolar =
-    servicios.filter(
-      servicio =>
-        servicio.tiene_solar,
-    ).length;
-
-
-  if (loading) {
-    return (
-      <div className="card p-8">
-        <div className="flex items-center justify-center gap-3">
-          <RefreshCw
-            size={20}
-            className="animate-spin text-[#ff8a1f]"
-          />
-
-          <p className="text-sm text-[#9098b1]">
-            Cargando servicios desde PostgreSQL...
-          </p>
-        </div>
+  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a2e]/30 p-4 backdrop-blur-sm">
+    <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#f0f1f7] bg-white p-6">
+        <div className="flex items-center gap-3"><div className="h-14 w-14 overflow-hidden rounded-2xl" style={{ background }}><img src={typeImage(servicio.tipo_servicio_nombre, servicio.tipo_servicio_categoria)} alt="" className="h-full w-full object-cover"/></div><div><h2 className="text-lg font-bold text-[#1a1a2e]">{servicio.nombre}</h2><p className="text-xs text-[#9098b1]">Servicio #{servicio.id_servicio} · RPU {servicio.rpu}</p></div></div>
+        <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f3f7]"><X size={14}/></button>
       </div>
-    );
-  }
+      <div className="flex flex-col gap-5 p-6">
+        <section><h3 className="mb-3 text-sm font-semibold text-[#1a1a2e]">Información del servicio</h3><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{[
+          ["Zona",servicio.zona_nombre],["Tipo",servicio.tipo_servicio_nombre],["Categoría",formatText(servicio.tipo_servicio_categoria)],["Ocupación",servicio.ocupacion_estimada==null?"Sin información":`${fmt(servicio.ocupacion_estimada)} personas`],
+          ["Carga contratada",`${servicio.carga_contratada_kw.toLocaleString("es-MX",{maximumFractionDigits:2})} kW`],["Sistema solar",servicio.tiene_solar?"Sí":"No"],["Tarifa",`Tarifa #${servicio.id_tarifa}`],["Clave",servicio.tipo_servicio_clave],
+        ].map(([label,value])=><div key={label} className="rounded-2xl bg-[#f8f9fc] p-3"><p className="text-[10px] text-[#9098b1]">{label}</p><p className="mt-1 text-sm font-bold text-[#1a1a2e]">{value}</p></div>)}</div></section>
 
+        <section><div className="mb-3 flex items-center justify-between"><div><h3 className="text-sm font-semibold text-[#1a1a2e]">Medidores asociados</h3><p className="text-[10px] text-[#9098b1]">Equipos relacionados con este servicio</p></div>{!loadingMeters&&!meterError&&<span className="rounded-full bg-[#eef2ff] px-3 py-1 text-xs font-bold text-[#6366f1]">{meters.length} medidores</span>}</div>
+          {loadingMeters ? <div className="flex items-center justify-center gap-2 rounded-2xl bg-[#f8f9fc] p-6"><RefreshCw size={16} className="animate-spin text-[#ff8a1f]"/><span className="text-xs text-[#9098b1]">Consultando medidores asociados...</span></div>
+          : meterError ? <div className="rounded-2xl bg-[#fef2f2] p-4 text-xs text-[#b91c1c]">No fue posible consultar medidores: {meterError}</div>
+          : meters.length===0 ? <div className="rounded-2xl bg-[#f8f9fc] p-5 text-center text-xs text-[#9098b1]">Este servicio no tiene medidores asociados.</div>
+          : <div className="overflow-hidden rounded-2xl border border-[#eef0f7]">{meters.map((meter,index)=><div key={meter.id_medidor} className={`grid grid-cols-[1fr_auto] gap-3 p-4 sm:grid-cols-[1.3fr_1fr_1fr_1fr] ${index<meters.length-1?"border-b border-[#eef0f7]":""}`}><div><p className="text-xs font-bold text-[#1a1a2e]">{meter.numero_serie}</p><p className="text-[10px] text-[#9098b1]">ID {meter.id_medidor}</p></div><span className="text-xs font-semibold text-[#606881]">{meter.es_principal?"Principal":"Secundario"}</span><span className={`text-xs font-semibold ${normalize(meter.estado).includes("retir")?"text-[#9098b1]":"text-[#10b981]"}`}>{meter.estado}</span><span className="text-xs font-bold text-[#6366f1]">Calidad {meter.calidad_enlace==null?"Sin dato":`${meter.calidad_enlace.toFixed(0)}%`}</span></div>)}</div>}
+        </section>
 
-  if (error) {
-    return (
-      <div className="card p-8">
-        <div className="text-center">
-          <h2 className="font-bold text-[#1a1a2e]">
-            No se pudieron cargar los servicios
-          </h2>
-
-          <p className="text-xs text-[#9098b1] mt-2">
-            {error}
-          </p>
-
-          <button
-            type="button"
-            onClick={cargarServicios}
-            className="mt-4 px-4 py-2 rounded-xl bg-[#ff8a1f] text-white text-xs font-semibold"
-          >
-            Reintentar
-          </button>
-        </div>
+        <section><h3 className="mb-3 text-sm font-semibold text-[#1a1a2e]">Parámetros del tipo de servicio</h3><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-[#fff4ea] p-4 text-center"><Zap size={18} className="mx-auto text-[#ff8a1f]"/><p className="mt-2 font-bold text-[#ff8a1f]">{servicio.consumo_base_kwh_h.toFixed(3)}</p><p className="text-[10px] text-[#9098b1]">Consumo base kWh/h</p></div><div className="rounded-2xl bg-[#eef2ff] p-4 text-center"><Gauge size={18} className="mx-auto text-[#6366f1]"/><p className="mt-2 font-bold text-[#6366f1]">{servicio.factor_dispersion.toFixed(3)}</p><p className="text-[10px] text-[#9098b1]">Factor de dispersión</p></div><div className="rounded-2xl bg-[#ecfdf5] p-4 text-center"><Leaf size={18} className="mx-auto text-[#10b981]"/><p className="mt-2 font-bold text-[#10b981]">{servicio.sensibilidad_temp.toFixed(3)}</p><p className="text-[10px] text-[#9098b1]">Sensibilidad térmica</p></div></div></section>
+        <section className="rounded-2xl bg-[#f8f9fc] p-4"><div className="flex items-center gap-3"><MapPin size={20} color={color}/><div><p className="text-xs font-bold">{servicio.zona_nombre}</p><p className="text-[11px] text-[#9098b1]">Latitud {servicio.latitud.toFixed(6)} · Longitud {servicio.longitud.toFixed(6)}</p></div></div></section>
       </div>
-    );
-  }
-
-
-  return (
-    <div className="flex flex-col gap-6">
-
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1
-            className="text-2xl font-bold text-[#1a1a2e]"
-            style={{
-              fontFamily:
-                "Nunito, sans-serif",
-            }}
-          >
-            Módulo de Servicios
-          </h1>
-
-          <p className="text-sm text-[#9098b1] mt-0.5">
-            Servicios registrados en PostgreSQL
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={cargarServicios}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#e5e7ef] text-xs font-semibold text-[#606881]"
-        >
-          <RefreshCw size={13} />
-          Actualizar
-        </button>
-      </div>
-
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-
-        {[
-          {
-            label: "Servicios registrados",
-            value: fmt(servicios.length),
-            icon: Building2,
-            color: "#6366f1",
-            background: "#eef2ff",
-          },
-          {
-            label: "Zonas con servicios",
-            value: fmt(zonas.length),
-            icon: MapPin,
-            color: "#ff8a1f",
-            background: "#fff4ea",
-          },
-          {
-            label: "Tipos de servicio",
-            value: fmt(tipos.length),
-            icon: CircleDollarSign,
-            color: "#f59e0b",
-            background: "#fffbeb",
-          },
-          {
-            label: "Servicios con solar",
-            value: fmt(totalSolar),
-            icon: Sun,
-            color: "#10b981",
-            background: "#ecfdf5",
-          },
-        ].map(item => (
-          <div
-            key={item.label}
-            className="card p-4"
-          >
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-              style={{
-                background:
-                  item.background,
-              }}
-            >
-              <item.icon
-                size={16}
-                color={item.color}
-              />
-            </div>
-
-            <p className="text-[11px] text-[#9098b1] font-medium">
-              {item.label}
-            </p>
-
-            <p className="text-lg font-bold text-[#1a1a2e] mt-0.5">
-              {item.value}
-            </p>
-          </div>
-        ))}
-
-      </div>
-
-
-      <div className="flex flex-wrap gap-3 items-center">
-
-        <div className="flex-1 min-w-52 relative">
-          <Search
-            size={14}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"
-          />
-
-          <input
-            value={search}
-            onChange={event => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Buscar por ID, RPU, nombre, zona o tipo..."
-            className="w-full bg-white border border-[#e5e7ef] rounded-2xl pl-10 pr-4 py-2.5 text-sm text-[#1a1a2e] placeholder-[#9098b1] focus:outline-none focus:border-[#ff8a1f]"
-          />
-        </div>
-
-
-        <select
-          value={filterZone}
-          onChange={event => {
-            setFilterZone(
-              event.target.value,
-            );
-            setPage(1);
-          }}
-          className="bg-white border border-[#e5e7ef] rounded-2xl px-4 py-2.5 text-sm text-[#1a1a2e] focus:outline-none focus:border-[#ff8a1f]"
-        >
-          <option value="Todas">
-            Todas las zonas
-          </option>
-
-          {zonas.map(zona => (
-            <option
-              key={zona}
-              value={zona}
-            >
-              {zona}
-            </option>
-          ))}
-        </select>
-
-
-        <select
-          value={filterType}
-          onChange={event => {
-            setFilterType(
-              event.target.value,
-            );
-            setPage(1);
-          }}
-          className="bg-white border border-[#e5e7ef] rounded-2xl px-4 py-2.5 text-sm text-[#1a1a2e] focus:outline-none focus:border-[#ff8a1f]"
-        >
-          <option value="Todos">
-            Todos los tipos
-          </option>
-
-          {tipos.map(tipo => (
-            <option
-              key={tipo}
-              value={tipo}
-            >
-              {tipo}
-            </option>
-          ))}
-        </select>
-
-
-        <select
-          value={filterSolar}
-          onChange={event => {
-            setFilterSolar(
-              event.target.value,
-            );
-            setPage(1);
-          }}
-          className="bg-white border border-[#e5e7ef] rounded-2xl px-4 py-2.5 text-sm text-[#1a1a2e] focus:outline-none focus:border-[#ff8a1f]"
-        >
-          <option value="Todos">
-            Todos
-          </option>
-
-          <option value="Con solar">
-            Con solar
-          </option>
-
-          <option value="Sin solar">
-            Sin solar
-          </option>
-        </select>
-
-
-        <span className="text-xs text-[#9098b1] font-medium">
-          {filtered.length} registros
-        </span>
-
-      </div>
-
-
-      {paged.length === 0 ? (
-        <div className="card p-8 text-center">
-          <p className="text-sm text-[#9098b1]">
-            No se encontraron servicios con
-            los filtros seleccionados.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-
-          {paged.map(servicio => {
-            const color =
-              COLORS[
-                servicio.id_zona %
-                  COLORS.length
-              ];
-
-            const background =
-              BACKGROUNDS[
-                servicio.id_zona %
-                  BACKGROUNDS.length
-              ];
-
-            return (
-              <button
-                type="button"
-                key={servicio.id_servicio}
-                onClick={() =>
-                  setSelected(servicio)
-                }
-                className="card p-4 text-left hover:shadow-lg transition-all group"
-              >
-                <div className="flex items-start justify-between mb-3">
-
-                  <div className="flex items-center gap-2.5">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                      style={{
-                        background,
-                      }}
-                    >
-                      {getTypeIcon(
-                        servicio.tipo_servicio_categoria,
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-[11px] text-[#9098b1] font-medium">
-                        ID{" "}
-                        {servicio.id_servicio}
-                        {" · "}
-                        {servicio.rpu}
-                      </p>
-
-                      <p className="text-sm font-semibold text-[#1a1a2e] truncate max-w-44">
-                        {servicio.nombre}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span
-                    className="text-[10px] font-semibold px-2.5 py-1 rounded-full max-w-32 truncate"
-                    style={{
-                      background,
-                      color,
-                    }}
-                  >
-                    {servicio.zona_nombre}
-                  </span>
-
-                </div>
-
-
-                <p className="text-[11px] text-[#9098b1] mb-3 truncate">
-                  {
-                    servicio.tipo_servicio_nombre
-                  }
-                  {" · "}
-                  {formatText(
-                    servicio.tipo_servicio_categoria,
-                  )}
-                </p>
-
-
-                <div className="grid grid-cols-3 gap-2">
-
-                  <div className="rounded-xl bg-[#f8f9fc] py-2 px-2 text-center">
-                    <p className="text-xs font-bold text-[#606881]">
-                      {servicio.ocupacion_estimada ??
-                        "—"}
-                    </p>
-
-                    <p className="text-[10px] text-[#9098b1] mt-0.5">
-                      ocup.
-                    </p>
-                  </div>
-
-
-                  <div className="rounded-xl bg-[#f8f9fc] py-2 px-2 text-center">
-                    <p className="text-xs font-bold text-[#ff8a1f]">
-                      {servicio.carga_contratada_kw.toLocaleString(
-                        "es-MX",
-                        {
-                          maximumFractionDigits: 2,
-                        },
-                      )}
-                    </p>
-
-                    <p className="text-[10px] text-[#9098b1] mt-0.5">
-                      kW carga
-                    </p>
-                  </div>
-
-
-                  <div className="rounded-xl bg-[#f8f9fc] py-2 px-2 text-center">
-                    <p
-                      className="text-xs font-bold"
-                      style={{
-                        color:
-                          servicio.tiene_solar
-                            ? "#10b981"
-                            : "#9098b1",
-                      }}
-                    >
-                      {servicio.tiene_solar
-                        ? "Sí"
-                        : "No"}
-                    </p>
-
-                    <p className="text-[10px] text-[#9098b1] mt-0.5">
-                      solar
-                    </p>
-                  </div>
-
-                </div>
-
-
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#f0f1f7]">
-                  <span className="text-[11px] text-[#9098b1] font-medium">
-                    Tarifa #
-                    {servicio.id_tarifa}
-                  </span>
-
-                  <ChevronRight
-                    size={14}
-                    className="text-[#9098b1] group-hover:text-[#ff8a1f] transition-colors"
-                  />
-                </div>
-              </button>
-            );
-          })}
-
-        </div>
-      )}
-
-
-      <div className="flex items-center justify-center gap-2">
-
-        <button
-          type="button"
-          onClick={() =>
-            setPage(current =>
-              Math.max(1, current - 1),
-            )
-          }
-          disabled={currentPage === 1}
-          className="px-4 py-2 text-xs font-semibold rounded-full border border-[#e5e7ef] text-[#9098b1] disabled:opacity-40 hover:border-[#ff8a1f] hover:text-[#ff8a1f] transition-colors"
-        >
-          Anterior
-        </button>
-
-        <span className="text-xs text-[#9098b1] font-medium px-2">
-          {currentPage} / {pages}
-        </span>
-
-        <button
-          type="button"
-          onClick={() =>
-            setPage(current =>
-              Math.min(
-                pages,
-                current + 1,
-              ),
-            )
-          }
-          disabled={
-            currentPage === pages
-          }
-          className="px-4 py-2 text-xs font-semibold rounded-full border border-[#e5e7ef] text-[#9098b1] disabled:opacity-40 hover:border-[#ff8a1f] hover:text-[#ff8a1f] transition-colors"
-        >
-          Siguiente
-        </button>
-
-      </div>
-
-
-      {selected && (
-        <ServicioDetail
-          servicio={selected}
-          onClose={() =>
-            setSelected(null)
-          }
-        />
-      )}
-
     </div>
-  );
+  </div>;
+}
+
+export default function Households(){
+  const [services,setServices]=useState<Servicio[]>([]);
+  const [search,setSearch]=useState("");
+  const [zoneFilter,setZoneFilter]=useState("Todas");
+  const [typeIndex,setTypeIndex]=useState(0);
+  const [solarFilter,setSolarFilter]=useState("Todos");
+  const [selected,setSelected]=useState<Servicio|null>(null);
+  const [page,setPage]=useState(1);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState<string|null>(null);
+
+  const load=async()=>{try{setLoading(true);setError(null);setServices(await obtenerServicios());}catch(e){setError(e instanceof Error?e.message:"Error al cargar servicios");}finally{setLoading(false);}};
+  useEffect(()=>{void load();},[]);
+  const zones=useMemo(()=>[...new Set(services.map(s=>s.zona_nombre))].sort((a,b)=>a.localeCompare(b,"es")),[services]);
+  const types=useMemo(()=>[...new Set(services.map(s=>s.tipo_servicio_nombre))].sort((a,b)=>a.localeCompare(b,"es")),[services]);
+  useEffect(()=>{if(typeIndex>=types.length)setTypeIndex(0);},[types.length,typeIndex]);
+  const selectedType=types[typeIndex]??"";
+  const typeExample=services.find(s=>s.tipo_servicio_nombre===selectedType);
+
+  const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return services.filter(s=>(!q||s.nombre.toLowerCase().includes(q)||s.rpu.toLowerCase().includes(q)||String(s.id_servicio).includes(q)||s.zona_nombre.toLowerCase().includes(q)||s.tipo_servicio_nombre.toLowerCase().includes(q))&&(zoneFilter==="Todas"||s.zona_nombre===zoneFilter)&&(!selectedType||s.tipo_servicio_nombre===selectedType)&&(solarFilter==="Todos"||(solarFilter==="Con solar"&&s.tiene_solar)||(solarFilter==="Sin solar"&&!s.tiene_solar)));},[services,search,zoneFilter,selectedType,solarFilter]);
+  const pages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));const currentPage=Math.min(page,pages);const paged=filtered.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
+  const changeType=(direction:number)=>{if(!types.length)return;setTypeIndex(current=>(current+direction+types.length)%types.length);setPage(1);};
+
+  if(loading)return <div className="card flex items-center justify-center gap-3 p-8"><RefreshCw className="animate-spin text-[#ff8a1f]"/><p className="text-sm text-[#9098b1]">Cargando servicios desde PostgreSQL...</p></div>;
+  if(error)return <div className="card p-8 text-center"><h2 className="font-bold">No se pudieron cargar los servicios</h2><p className="mt-2 text-xs text-[#9098b1]">{error}</p><button type="button" onClick={()=>void load()} className="mt-4 rounded-xl bg-[#ff8a1f] px-4 py-2 text-xs font-semibold text-white">Reintentar</button></div>;
+
+  return <div className="flex flex-col gap-6">
+    <div className="flex items-start justify-between"><div><h1 className="text-2xl font-bold text-[#1a1a2e]">Módulo de Servicios</h1><p className="text-sm text-[#9098b1]">Exploración visual de los servicios registrados</p></div><button type="button" onClick={()=>void load()} className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold"><RefreshCw size={13}/>Actualizar</button></div>
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[["Servicios registrados",services.length,Building2,"#6366f1"],["Zonas con servicios",zones.length,MapPin,"#ff8a1f"],["Tipos de servicio",types.length,CircleDollarSign,"#f59e0b"],["Servicios con solar",services.filter(s=>s.tiene_solar).length,Sun,"#10b981"]].map(([label,value,Icon,color])=>{const I=Icon as typeof Building2;return <div key={String(label)} className="card p-4"><I size={16} style={{color:String(color)}}/><p className="mt-3 text-[11px] text-[#9098b1]">{label}</p><p className="text-lg font-bold">{fmt(Number(value))}</p></div>})}</div>
+
+    <section className="card overflow-hidden p-4"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-bold text-[#1a1a2e]">Tipo de servicio</h2><p className="text-[10px] text-[#9098b1]">Usa las flechas para cambiar el filtro visual</p></div><span className="rounded-full bg-[#fff4ea] px-3 py-1 text-[10px] font-bold text-[#ff8a1f]">{typeIndex+1} / {Math.max(types.length,1)}</span></div><div className="flex items-center gap-3"><button type="button" onClick={()=>changeType(-1)} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border bg-white shadow-sm hover:border-[#ff8a1f]"><ChevronLeft size={18}/></button><div className="relative h-40 flex-1 overflow-hidden rounded-3xl bg-[#f2f3f7]"><img src={typeImage(selectedType,typeExample?.tipo_servicio_categoria??"")} alt={selectedType} className="h-full w-full object-cover"/><div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e]/80 via-transparent to-transparent"/><div className="absolute bottom-0 left-0 right-0 p-5 text-white"><p className="text-lg font-bold">{selectedType||"Sin tipos disponibles"}</p><p className="text-xs text-white/80">{filtered.length} servicios coinciden con los filtros actuales</p></div></div><button type="button" onClick={()=>changeType(1)} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border bg-white shadow-sm hover:border-[#ff8a1f]"><ChevronRight size={18}/></button></div></section>
+
+    <div className="flex flex-wrap items-center gap-3"><div className="relative min-w-60 flex-1"><Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"/><input value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}} placeholder="Buscar por ID, RPU, nombre o zona..." className="w-full rounded-2xl border bg-white py-2.5 pl-10 pr-4 text-sm"/></div><select value={zoneFilter} onChange={e=>{setZoneFilter(e.target.value);setPage(1)}} className="rounded-2xl border bg-white px-4 py-2.5 text-sm"><option value="Todas">Todas las zonas</option>{zones.map(z=><option key={z}>{z}</option>)}</select><select value={solarFilter} onChange={e=>{setSolarFilter(e.target.value);setPage(1)}} className="rounded-2xl border bg-white px-4 py-2.5 text-sm"><option>Todos</option><option>Con solar</option><option>Sin solar</option></select><span className="text-xs text-[#9098b1]">{filtered.length} registros</span></div>
+
+    {paged.length===0?<div className="card p-8 text-center text-sm text-[#9098b1]">No se encontraron servicios con los filtros seleccionados.</div>:<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{paged.map(service=>{const color=COLORS[service.id_zona%COLORS.length];return <button type="button" key={service.id_servicio} onClick={()=>setSelected(service)} className="card overflow-hidden text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"><div className="h-24 overflow-hidden"><img src={typeImage(service.tipo_servicio_nombre,service.tipo_servicio_categoria)} alt="" className="h-full w-full object-cover"/></div><div className="p-4"><div className="flex justify-between gap-2"><div><p className="text-[10px] text-[#9098b1]">ID {service.id_servicio} · {service.rpu}</p><p className="truncate text-sm font-bold">{service.nombre}</p></div><span className="h-fit rounded-full px-2 py-1 text-[9px] font-bold" style={{background:`${color}18`,color}}>{service.zona_nombre}</span></div><p className="mt-2 truncate text-[11px] text-[#9098b1]">{service.tipo_servicio_nombre}</p><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-xl bg-[#f8f9fc] p-2 text-center"><b className="text-xs text-[#ff8a1f]">{service.carga_contratada_kw.toLocaleString("es-MX",{maximumFractionDigits:2})}</b><p className="text-[9px] text-[#9098b1]">kW carga</p></div><div className="rounded-xl bg-[#f8f9fc] p-2 text-center"><b className={`text-xs ${service.tiene_solar?"text-[#10b981]":"text-[#9098b1]"}`}>{service.tiene_solar?"Sí":"No"}</b><p className="text-[9px] text-[#9098b1]">solar</p></div></div><div className="mt-3 flex items-center justify-between border-t pt-3"><span className="text-[10px] text-[#9098b1]">Ver servicio y medidores</span><ChevronRight size={14}/></div></div></button>})}</div>}
+
+    <div className="flex items-center justify-center gap-2"><button type="button" disabled={currentPage===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="rounded-full border px-4 py-2 text-xs disabled:opacity-40">Anterior</button><span className="text-xs text-[#9098b1]">{currentPage} / {pages}</span><button type="button" disabled={currentPage===pages} onClick={()=>setPage(p=>Math.min(pages,p+1))} className="rounded-full border px-4 py-2 text-xs disabled:opacity-40">Siguiente</button></div>
+    {selected&&<ServicioDetail servicio={selected} onClose={()=>setSelected(null)}/>}  
+  </div>;
 }
