@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -8,7 +8,6 @@ import {
   Cell,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,381 +16,595 @@ import {
 import {
   Activity,
   AlertCircle,
-  CalendarRange,
-  Check,
-  ChevronRight,
+  BarChart3,
+  CalendarDays,
   Clock3,
   Gauge,
   MapPin,
   RefreshCw,
   Search,
   Server,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   X,
   Zap,
 } from "lucide-react";
-import {
-  obtenerLecturas,
-  obtenerMedidoresAnalisis,
-  obtenerPerfilHorario,
-  obtenerPeriodos,
-  obtenerResumenAnalisis,
-  type LecturaEnergetica,
-  type MedidorAnalisis,
-  type PerfilHorario,
-  type PeriodoFacturacion,
-  type ResumenAnalisis,
-} from "../services/analisisEnergeticoService";
 
-const fmt = (value: number, digits = 2): string =>
-  value.toLocaleString("es-MX", { maximumFractionDigits: digits });
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-const formatDateTime = (value: string | null): string =>
-  value
-    ? new Date(value).toLocaleString("es-MX", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : "Sin datos";
-
-const formatDate = (value: string): string => {
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString("es-MX", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
-};
-
-const DAY_OPTIONS = [
-  { value: "H", label: "Laboral" },
-  { value: "S", label: "Sábado" },
-  { value: "D", label: "Domingo" },
+const MONTHS = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
 ];
 
-const tipoDiaLabel = (value: string): string =>
-  DAY_OPTIONS.find((item) => item.value === value)?.label ?? `Tipo ${value}`;
+const DAY_TYPES = [
+  { value: "todos", label: "Todos" },
+  { value: "laborable", label: "Laborable" },
+  { value: "fin_semana", label: "Fin de semana" },
+  { value: "festivo", label: "Festivo" },
+] as const;
 
-interface TooltipPayloadItem {
+type DayType = (typeof DAY_TYPES)[number]["value"];
+type IconComponent = typeof Activity;
+
+interface Meter {
+  id_medidor: number;
+  id_servicio: number;
+  numero_serie: string;
+  id_zona: number;
+  zona_nombre: string;
+  id_tipo_servicio: number;
+  tipo_servicio_nombre: string;
+  servicio_nombre: string;
+  rpu: string;
+}
+
+interface HourPoint {
+  hora: number;
+  consumo_real_kwh: number;
+  consumo_estimado_kwh: number;
+  lecturas: number;
+}
+
+interface MonthPoint {
+  mes: number;
+  nombre_mes: string;
+  consumo_total_kwh: number;
+  promedio_diario_kwh: number;
+  lecturas: number;
+}
+
+interface HeatCell {
+  dia_semana: number;
+  nombre_dia: string;
+  hora: number;
+  consumo_promedio_kwh: number;
+  lecturas: number;
+}
+
+interface AnalysisSummary {
+  consumo_total_kwh: number;
+  consumo_anterior_kwh: number;
+  variacion_pct: number;
+  promedio_por_lectura_kwh: number;
+  promedio_diario_kwh: number;
+  pico_horario_kwh: number;
+  hora_pico: number | null;
+  lecturas: number;
+  medidores: number;
+  servicios: number;
+}
+
+interface AnalysisResponse {
+  mes: number;
+  anio: number;
+  tipo_dia: DayType;
+  resumen: AnalysisSummary;
+  curva_horaria: HourPoint[];
+  comparacion_mensual: MonthPoint[];
+  mapa_calor: HeatCell[];
+}
+
+interface VariationStatus {
+  color: string;
+  soft: string;
+  label: string;
+  description: string;
+  Icon: IconComponent;
+  comparable: boolean;
+}
+
+interface ChartTooltipPayload {
   name?: string;
   value?: number;
   color?: string;
-  dataKey?: string;
 }
+
 interface ChartTooltipProps {
   active?: boolean;
+  payload?: ChartTooltipPayload[];
   label?: string;
-  payload?: TooltipPayloadItem[];
-  suffix?: string;
+}
+
+function formatNumber(value: number, digits = 2): string {
+  return value.toLocaleString("es-MX", {
+    maximumFractionDigits: digits,
+  });
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function getVariationStatus(
+  value: number,
+  previousConsumption: number,
+  selectedMonth: number,
+): VariationStatus {
+  if (previousConsumption <= 0) {
+    return {
+      color: "#64748b",
+      soft: "#f1f5f9",
+      label:
+        selectedMonth === 1
+          ? "Sin periodo anterior"
+          : "Sin datos comparables",
+      description:
+        selectedMonth === 1
+          ? "No existen datos de diciembre para realizar la comparación."
+          : "El mes anterior no tiene consumo registrado.",
+      Icon: Activity,
+      comparable: false,
+    };
+  }
+
+  if (value < 0) {
+    return {
+      color: "#059669",
+      soft: "#ecfdf5",
+      label: "Disminuyó",
+      description: "El consumo fue menor que el del mes anterior.",
+      Icon: TrendingDown,
+      comparable: true,
+    };
+  }
+
+  if (Math.abs(value) < 0.0001) {
+    return {
+      color: "#64748b",
+      soft: "#f1f5f9",
+      label: "Sin cambio",
+      description: "El consumo fue igual al del mes anterior.",
+      Icon: Activity,
+      comparable: true,
+    };
+  }
+
+  if (value <= 10) {
+    return {
+      color: "#d97706",
+      soft: "#fffbeb",
+      label: "Aumentó moderadamente",
+      description: "El consumo aumentó hasta 10% frente al mes anterior.",
+      Icon: TrendingUp,
+      comparable: true,
+    };
+  }
+
+  return {
+    color: "#dc2626",
+    soft: "#fef2f2",
+    label: "Aumentó considerablemente",
+    description: "El consumo aumentó más de 10% frente al mes anterior.",
+    Icon: TrendingUp,
+    comparable: true,
+  };
 }
 
 function ChartTooltip({
   active,
-  label,
   payload,
-  suffix = "kWh",
+  label,
 }: ChartTooltipProps) {
-  if (!active || !payload?.length) return null;
-  const real = payload.find((item) => item.dataKey === "real")?.value;
-  const estimated = payload.find((item) => item.dataKey === "estimado")?.value;
-  const difference =
-    real !== undefined && estimated !== undefined ? real - estimated : null;
+  if (!active || !payload?.length) {
+    return null;
+  }
+
   return (
-    <div className="min-w-44 rounded-2xl border border-white/70 bg-[#171827]/95 p-3 text-white shadow-2xl backdrop-blur-xl">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/50">
-        {label}
-      </p>
-      <div className="space-y-1.5">
-        {payload.map((item) => (
-          <div
-            key={item.dataKey ?? item.name}
-            className="flex items-center justify-between gap-5 text-xs"
-          >
-            <span className="flex items-center gap-2 text-white/65">
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: item.color }}
-              />
-              {item.name}
-            </span>
-            <strong>
-              {fmt(Number(item.value ?? 0))} {suffix}
-            </strong>
-          </div>
-        ))}
-      </div>
-      {difference !== null && (
-        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2 text-[11px]">
-          <span className="text-white/55">Diferencia</span>
-          <span
-            className={difference > 0 ? "text-orange-300" : "text-emerald-300"}
-          >
-            {difference > 0 ? "+" : ""}
-            {fmt(difference)} {suffix}
-          </span>
+    <div className="rounded-2xl bg-[#171827]/95 p-3 text-white shadow-xl">
+      <p className="mb-2 text-[10px] text-white/50">{label}</p>
+
+      {payload.map((item, index) => (
+        <div
+          key={`${item.name ?? "serie"}-${index}`}
+          className="flex justify-between gap-5 text-xs"
+        >
+          <span style={{ color: item.color }}>{item.name}</span>
+          <b>{formatNumber(Number(item.value ?? 0))} kWh</b>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-function SkeletonDashboard() {
+function Heatmap({ data }: { data: HeatCell[] }) {
+  const maximum = Math.max(
+    0,
+    ...data.map((item) => item.consumo_promedio_kwh),
+  );
+
+  const cells = new Map(
+    data.map((item) => [
+      `${item.dia_semana}-${item.hora}`,
+      item,
+    ]),
+  );
+
   return (
-    <div className="space-y-5" aria-label="Cargando análisis energético">
-      <div className="h-40 animate-pulse rounded-3xl bg-white" />
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-28 animate-pulse rounded-2xl bg-white" />
-        ))}
+    <div className="overflow-x-auto">
+      <div className="min-w-[900px]">
+        <div className="grid grid-cols-[95px_repeat(24,1fr)] gap-1">
+          <span />
+
+          {Array.from({ length: 24 }, (_, hour) => (
+            <span
+              key={hour}
+              className="text-center text-[8px] text-[#9098b1]"
+            >
+              {String(hour).padStart(2, "0")}
+            </span>
+          ))}
+
+          {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+            <div key={day} className="contents">
+              <span className="flex items-center text-[10px] font-semibold text-[#606881]">
+                {cells.get(`${day}-0`)?.nombre_dia}
+              </span>
+
+              {Array.from({ length: 24 }, (_, hour) => {
+                const cell = cells.get(`${day}-${hour}`);
+                const value = cell?.consumo_promedio_kwh ?? 0;
+                const intensity = maximum > 0 ? value / maximum : 0;
+
+                return (
+                  <div
+                    key={hour}
+                    className="h-7 rounded-md"
+                    title={`${cell?.nombre_dia ?? "Día"} ${String(
+                      hour,
+                    ).padStart(2, "0")}:00 · ${formatNumber(
+                      value,
+                    )} kWh`}
+                    style={{
+                      background:
+                        value > 0
+                          ? `rgba(249,115,22,${
+                              0.12 + intensity * 0.88
+                            })`
+                          : "#f1f2f6",
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex items-center justify-end gap-2 text-[9px] text-[#9098b1]">
+          <span>Menor</span>
+          {[0.15, 0.35, 0.55, 0.75, 1].map((opacity) => (
+            <span
+              key={opacity}
+              className="h-3 w-6 rounded"
+              style={{
+                background: `rgba(249,115,22,${opacity})`,
+              }}
+            />
+          ))}
+          <span>Mayor</span>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="space-y-5">
+      <div className="h-28 animate-pulse rounded-3xl bg-[#171827]" />
       <div className="h-96 animate-pulse rounded-3xl bg-white" />
     </div>
   );
 }
 
+function UpdatingOverlay({ serial }: { serial?: string }) {
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-[#171827]/25 backdrop-blur-[2px]">
+      <div className="rounded-3xl bg-white px-8 py-7 text-center shadow-2xl">
+        <RefreshCw
+          size={28}
+          className="mx-auto animate-spin text-orange-500"
+        />
+        <p className="mt-4 text-sm font-bold">
+          Actualizando análisis del medidor
+        </p>
+        <p className="mt-1 text-[11px] text-[#9098b1]">
+          Procesando lecturas reales de {serial ?? "medidor"}...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+interface InfoCardProps {
+  icon: IconComponent;
+  label: string;
+  value: string;
+  note?: string;
+}
+
+function InfoCard({ icon: Icon, label, value, note }: InfoCardProps) {
+  return (
+    <div className="rounded-2xl border bg-white p-4">
+      <Icon size={17} className="text-orange-500" />
+      <p className="mt-3 text-[10px] text-[#9098b1]">{label}</p>
+      <p className="truncate font-bold">{value}</p>
+      {note && <p className="text-[9px] text-[#9098b1]">{note}</p>}
+    </div>
+  );
+}
+
+interface KpiCardProps {
+  label: string;
+  value: string;
+  icon: IconComponent;
+  color: string;
+  note: string;
+}
+
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+  note,
+}: KpiCardProps) {
+  return (
+    <article className="rounded-2xl border bg-white p-4">
+      <Icon size={17} style={{ color }} />
+      <p className="mt-3 text-[11px] text-[#9098b1]">{label}</p>
+      <p className="text-xl font-bold">{value}</p>
+      <p className="mt-2 text-[10px]" style={{ color }}>
+        {note}
+      </p>
+    </article>
+  );
+}
+
+interface SummaryCardProps {
+  label: string;
+  value: string;
+  description?: string;
+  color?: string;
+  background?: string;
+}
+
+function SummaryCard({
+  label,
+  value,
+  description,
+  color = "#1a1a2e",
+  background = "#f8f9fc",
+}: SummaryCardProps) {
+  return (
+    <div className="rounded-2xl p-4" style={{ background }}>
+      <p className="text-[10px] text-[#9098b1]">{label}</p>
+      <p className="font-bold" style={{ color }}>
+        {value}
+      </p>
+      {description && (
+        <p className="mt-1 text-[9px] text-[#747b91]">
+          {description}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function EnergyAnalysis() {
-  const [medidores, setMedidores] = useState<MedidorAnalisis[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [tipoDia, setTipoDia] = useState("H");
-  const [meterSearch, setMeterSearch] = useState("");
-  const [showMeterResults, setShowMeterResults] = useState(false);
-  const [lecturas, setLecturas] = useState<LecturaEnergetica[]>([]);
-  const [perfil, setPerfil] = useState<PerfilHorario[]>([]);
-  const [periodos, setPeriodos] = useState<PeriodoFacturacion[]>([]);
-  const [resumen, setResumen] = useState<ResumenAnalisis | null>(null);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [meters, setMeters] = useState<Meter[]>([]);
+  const [meterId, setMeterId] = useState<number | null>(null);
+  const [month, setMonth] = useState(3);
+  const [dayType, setDayType] = useState<DayType>("todos");
+  const [analysis, setAnalysis] =
+    useState<AnalysisResponse | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
-
-  const selected = useMemo(
-    () => medidores.find((item) => item.id_medidor === selectedId) ?? null,
-    [medidores, selectedId],
-  );
-
-  const filteredMeters = useMemo(() => {
-    const query = meterSearch.trim().toLowerCase();
-    if (!query) return medidores.slice(0, 25);
-    return medidores
-      .filter((item) =>
-        [
-          item.numero_serie,
-          item.servicio_rpu,
-          item.servicio_nombre,
-          item.zona_nombre,
-          String(item.id_medidor),
-        ].some((value) => value.toLowerCase().includes(query)),
-      )
-      .slice(0, 30);
-  }, [medidores, meterSearch]);
-
-  const cargarCatalogo = async (): Promise<void> => {
-    try {
-      setCatalogLoading(true);
-      setError(null);
-      const data = await obtenerMedidoresAnalisis();
-      setMedidores(data);
-      setSelectedId((current) => current ?? data[0]?.id_medidor ?? null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "No se pudo cargar el catálogo.",
-      );
-    } finally {
-      setCatalogLoading(false);
-    }
-  };
 
   useEffect(() => {
-    void cargarCatalogo();
-  }, []);
+    const loadMeters = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  useEffect(() => {
-    const closeResults = (event: MouseEvent) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target as Node)
-      )
-        setShowMeterResults(false);
+        const response = await fetch(
+          `${API_URL}/api/analisis-energetico/medidores`,
+        );
+
+        if (!response.ok) {
+          throw new Error(`Catálogo HTTP ${response.status}`);
+        }
+
+        const data = (await response.json()) as Meter[];
+        setMeters(data);
+        setMeterId(data[0]?.id_medidor ?? null);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar el catálogo de medidores.",
+        );
+      } finally {
+        setLoading(false);
+      }
     };
-    document.addEventListener("mousedown", closeResults);
-    return () => document.removeEventListener("mousedown", closeResults);
+
+    void loadMeters();
   }, []);
 
-  const cargarDatos = async (): Promise<void> => {
-    if (!selected) return;
-    try {
-      setAnalysisLoading(true);
-      setError(null);
-      const [lecturasData, resumenData, perfilData, periodosData] =
-        await Promise.all([
-          obtenerLecturas(selected.id_medidor),
-          obtenerResumenAnalisis(selected.id_medidor),
-          obtenerPerfilHorario(selected.id_tipo_servicio, tipoDia),
-          obtenerPeriodos(selected.id_servicio),
-        ]);
-      setLecturas(lecturasData);
-      setResumen(resumenData);
-      setPerfil(perfilData);
-      setPeriodos(periodosData);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "No se pudieron cargar los datos.",
-      );
-    } finally {
-      setAnalysisLoading(false);
+  useEffect(() => {
+    if (meterId === null) {
+      return;
     }
+
+    const loadAnalysis = async () => {
+      try {
+        setUpdating(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          mes: String(month),
+          nivel: "medidor",
+          tipo_dia: dayType,
+          id_medidor: String(meterId),
+        });
+
+        const response = await fetch(
+          `${API_URL}/api/analisis-energetico/agregado?${params.toString()}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Análisis HTTP ${response.status}: ${await response.text()}`,
+          );
+        }
+
+        const data = (await response.json()) as AnalysisResponse;
+        setAnalysis(data);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar el análisis del medidor.",
+        );
+      } finally {
+        setUpdating(false);
+      }
+    };
+
+    void loadAnalysis();
+  }, [meterId, month, dayType]);
+
+  const selectedMeter = useMemo(
+    () =>
+      meters.find((item) => item.id_medidor === meterId) ?? null,
+    [meters, meterId],
+  );
+
+  const searchResults = useMemo(() => {
+    const query = normalizeText(search.trim());
+
+    if (!query) {
+      return [];
+    }
+
+    return meters
+      .filter((item) =>
+        normalizeText(
+          `${item.numero_serie} ${item.servicio_nombre} ${item.rpu} ` +
+            `${item.zona_nombre} ${item.tipo_servicio_nombre}`,
+        ).includes(query),
+      )
+      .slice(0, 15);
+  }, [meters, search]);
+
+  const hourlyChartData = useMemo(
+    () =>
+      analysis?.curva_horaria.map((item) => ({
+        hora: `${String(item.hora).padStart(2, "0")}:00`,
+        real: item.consumo_real_kwh,
+        estimado: item.consumo_estimado_kwh,
+      })) ?? [],
+    [analysis],
+  );
+
+  const monthlyChartData = useMemo(
+    () =>
+      analysis?.comparacion_mensual.map((item) => ({
+        ...item,
+        active: item.mes === month,
+      })) ?? [],
+    [analysis, month],
+  );
+
+  const variationStatus = getVariationStatus(
+    analysis?.resumen.variacion_pct ?? 0,
+    analysis?.resumen.consumo_anterior_kwh ?? 0,
+    month,
+  );
+
+  const VariationIcon = variationStatus.Icon;
+
+  const variationValue = variationStatus.comparable
+    ? `${
+        (analysis?.resumen.variacion_pct ?? 0) > 0 ? "+" : ""
+      }${formatNumber(analysis?.resumen.variacion_pct ?? 0, 1)}%`
+    : "0%";
+
+  const selectMeter = (meter: Meter) => {
+    setMeterId(meter.id_medidor);
+    setSearch("");
+    setSearchOpen(false);
   };
 
-  useEffect(() => {
-    void cargarDatos();
-  }, [selected, tipoDia]);
+  const resetFilters = () => {
+    setMeterId(meters[0]?.id_medidor ?? null);
+    setMonth(3);
+    setDayType("todos");
+    setSearch("");
+    setSearchOpen(false);
+  };
 
-  const lecturaChart = useMemo(
-    () =>
-      lecturas.map((item) => ({
-        fecha: new Date(item.ts).toLocaleString("es-MX", {
-          day: "2-digit",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        real: item.consumo_real_kwh,
-        estimado: item.consumo_kwh,
-      })),
-    [lecturas],
-  );
-
-  const perfilChart = useMemo(
-    () =>
-      perfil.map((item) => ({
-        hora: `${String(item.hora).padStart(2, "0")}:00`,
-        factor: item.factor,
-      })),
-    [perfil],
-  );
-  const periodosChart = useMemo(
-    () =>
-      [...periodos]
-        .reverse()
-        .map((item, index) => ({
-          periodo: item.folio,
-          consumo: item.consumo_real_kwh,
-          latest: index === periodos.length - 1,
-        })),
-    [periodos],
-  );
-  const averageReading = resumen?.consumo_promedio_kwh ?? 0;
-  const maxReading = resumen?.consumo_maximo_kwh ?? 0;
-  const maxRatio = averageReading > 0 ? maxReading / averageReading : 0;
-  const latestConsumption = periodosChart.at(-1)?.consumo ?? 0;
-  const previousConsumption = periodosChart.at(-2)?.consumo ?? 0;
-  const periodChange = previousConsumption
-    ? ((latestConsumption - previousConsumption) / previousConsumption) * 100
-    : 0;
-
-  if (catalogLoading && medidores.length === 0) return <SkeletonDashboard />;
-
-  const kpis = [
-    {
-      label: "Consumo total",
-      value: `${fmt(resumen?.consumo_total_kwh ?? 0)} kWh`,
-      icon: Zap,
-      color: "#f97316",
-      soft: "#fff1e7",
-      accent: "from-orange-400 to-orange-600",
-      note: "Energía acumulada",
-    },
-    {
-      label: "Promedio por lectura",
-      value: `${fmt(averageReading)} kWh`,
-      icon: Gauge,
-      color: "#10b981",
-      soft: "#ecfdf5",
-      accent: "from-emerald-400 to-emerald-600",
-      note: "Comportamiento medio",
-    },
-    {
-      label: "Consumo máximo",
-      value: `${fmt(maxReading)} kWh`,
-      icon: TrendingUp,
-      color: "#ef4444",
-      soft: "#fef2f2",
-      accent: "from-red-400 to-red-600",
-      note: formatDateTime(resumen?.hora_maximo ?? null),
-    },
-    {
-      label: "Lecturas analizadas",
-      value: fmt(resumen?.total_lecturas ?? 0, 0),
-      icon: Activity,
-      color: "#6366f1",
-      soft: "#eef2ff",
-      accent: "from-indigo-400 to-indigo-600",
-      note: "Registros procesados",
-    },
-  ];
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="relative flex flex-col gap-6">
-      <div className="pointer-events-none absolute -right-24 -top-24 -z-10 h-80 w-80 rounded-full bg-orange-100/50 blur-3xl" />
+      {updating && (
+        <UpdatingOverlay serial={selectedMeter?.numero_serie} />
+      )}
 
-      <section className="relative overflow-hidden rounded-3xl bg-[#171827] p-5 text-white shadow-xl sm:p-7">
-        <div className="absolute -right-16 -top-20 h-72 w-72 rounded-full bg-orange-500/20 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 h-28 w-28 rounded-full bg-indigo-500/15 blur-2xl" />
-        <div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 shadow-lg shadow-orange-950/30">
-              <Zap size={22} fill="currentColor" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300">
-                Inteligencia energética
-              </p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-                Análisis Energético
-              </h1>
-              {selected ? (
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/65">
-                  <span className="rounded-full bg-white/10 px-3 py-1.5 font-semibold text-white">
-                    {selected.numero_serie}
-                  </span>
-                  <span>RPU {selected.servicio_rpu}</span>
-                  <span className="text-white/25">•</span>
-                  <span>{selected.tipo_servicio_nombre}</span>
-                  <span className="text-white/25">•</span>
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} />
-                    {selected.zona_nombre}
-                  </span>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-white/50">
-                  Selecciona un medidor para comenzar.
-                </p>
-              )}
-            </div>
+      <header className="rounded-3xl bg-[#171827] p-6 text-white">
+        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-orange-300">
+          Inteligencia energética
+        </p>
+
+        <div className="mt-1 flex justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">
+              Análisis Energético por Medidor
+            </h1>
+            <p className="mt-2 text-xs text-white/60">
+              Selecciona un medidor; zona, servicio, RPU y tipo se
+              cargan automáticamente.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void cargarDatos()}
-            disabled={!selected || analysisLoading}
-            className="flex w-fit items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-xs font-bold backdrop-blur transition hover:bg-white/15 disabled:opacity-50"
-          >
-            <RefreshCw
-              size={14}
-              className={analysisLoading ? "animate-spin" : ""}
-            />
-            {analysisLoading ? "Actualizando" : "Actualizar datos"}
-          </button>
+          <Zap size={30} className="text-orange-400" />
         </div>
-      </section>
+      </header>
 
       {error && (
-        <div className="flex items-center justify-between gap-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs text-red-700">
-          <span className="flex items-center gap-2">
+        <div className="flex items-center justify-between rounded-2xl bg-red-50 p-4 text-xs text-red-700">
+          <span className="flex gap-2">
             <AlertCircle size={15} />
             {error}
           </span>
@@ -401,471 +614,355 @@ export default function EnergyAnalysis() {
         </div>
       )}
 
-      <section className="rounded-3xl border border-[#e8eaf1] bg-white p-4 shadow-sm sm:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div ref={searchRef} className="relative">
-            <label
-              htmlFor="meter-search"
-              className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[#9098b1]"
-            >
-              Medidor a analizar
-            </label>
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"
-              />
-              <input
-                id="meter-search"
-                value={meterSearch}
-                onFocus={() => setShowMeterResults(true)}
-                onChange={(e) => {
-                  setMeterSearch(e.target.value);
-                  setShowMeterResults(true);
-                }}
-                placeholder={
-                  selected?.numero_serie ??
-                  "Buscar por serie, RPU, servicio o zona..."
-                }
-                className="w-full rounded-xl border border-[#e5e7ef] bg-[#fafbfc] py-3 pl-10 pr-10 text-sm outline-none transition focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-50"
-              />
-              {meterSearch && (
+      <section className="rounded-3xl border bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-bold">
+          Seleccionar medidor y periodo
+        </h2>
+        <p className="mb-4 text-[11px] text-[#9098b1]">
+          Los únicos filtros del análisis son medidor, mes y tipo de
+          día.
+        </p>
+
+        <div className="relative mb-4">
+          <Search
+            size={15}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"
+          />
+          <input
+            value={search}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setSearchOpen(true);
+            }}
+            placeholder="Buscar por serie, servicio, RPU, zona o tipo..."
+            className="w-full rounded-2xl border bg-[#fafbfc] py-3 pl-10 pr-4 text-sm"
+          />
+
+          {searchOpen && searchResults.length > 0 && (
+            <div className="absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border bg-white p-2 shadow-2xl">
+              {searchResults.map((item) => (
                 <button
                   type="button"
-                  onClick={() => setMeterSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a3a9ba]"
+                  key={item.id_medidor}
+                  onClick={() => selectMeter(item)}
+                  className="flex w-full items-center justify-between rounded-xl p-3 text-left hover:bg-orange-50"
                 >
-                  <X size={15} />
-                </button>
-              )}
-            </div>
-            {showMeterResults && (
-              <div className="absolute left-0 right-0 z-40 mt-2 max-h-80 overflow-y-auto rounded-2xl border border-[#e5e7ef] bg-white p-2 shadow-2xl">
-                <div className="flex items-center justify-between px-2 py-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#9098b1]">
-                    Medidores disponibles
+                  <span>
+                    <b className="block text-xs">
+                      {item.numero_serie}
+                    </b>
+                    <small className="text-[#9098b1]">
+                      {item.servicio_nombre} · RPU {item.rpu}
+                    </small>
                   </span>
-                  <span className="rounded-full bg-[#f2f3f7] px-2 py-0.5 text-[9px] font-bold text-[#747b91]">
-                    {filteredMeters.length}
+                  <span className="text-right text-[9px] text-[#9098b1]">
+                    {item.zona_nombre}
+                    <br />
+                    {item.tipo_servicio_nombre}
                   </span>
-                </div>
-                {filteredMeters.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-[#9098b1]">
-                    No se encontraron medidores
-                  </div>
-                ) : (
-                  filteredMeters.map((item) => {
-                    const active = item.id_medidor === selectedId;
-                    return (
-                      <button
-                        type="button"
-                        key={item.id_medidor}
-                        onClick={() => {
-                          setSelectedId(item.id_medidor);
-                          setMeterSearch("");
-                          setShowMeterResults(false);
-                        }}
-                        className={`group flex w-full items-center gap-3 rounded-xl p-3 text-left transition ${active ? "bg-orange-50" : "hover:bg-[#f8f9fc]"}`}
-                      >
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active ? "bg-orange-500 text-white" : "bg-indigo-50 text-indigo-600"}`}
-                        >
-                          <Server size={16} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-xs font-bold text-[#1a1a2e]">
-                              {item.numero_serie}
-                            </p>
-                            {active && (
-                              <Check size={13} className="text-orange-500" />
-                            )}
-                          </div>
-                          <p className="mt-0.5 truncate text-[10px] text-[#747b91]">
-                            RPU {item.servicio_rpu} · {item.servicio_nombre}
-                          </p>
-                          <p className="mt-0.5 truncate text-[10px] text-[#adb2c1]">
-                            {item.zona_nombre} · {item.tipo_servicio_nombre}
-                          </p>
-                        </div>
-                        <ChevronRight
-                          size={14}
-                          className="text-[#c2c6d2] transition group-hover:translate-x-0.5 group-hover:text-orange-500"
-                        />
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#9098b1]">
-              Perfil del día
-            </p>
-            <div className="inline-flex w-full rounded-xl border border-[#e5e7ef] bg-[#fafbfc] p-1 lg:w-auto">
-              {DAY_OPTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  onClick={() => setTipoDia(option.value)}
-                  className={`flex-1 rounded-lg px-4 py-2 text-xs font-bold transition lg:flex-none ${tipoDia === option.value ? "bg-[#171827] text-white shadow-sm" : "text-[#9098b1] hover:text-[#1a1a2e]"}`}
-                >
-                  {option.label}
                 </button>
               ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 ${analysisLoading ? "pointer-events-none opacity-55" : ""}`}
-      >
-        {kpis.map((item) => (
-          <article
-            key={item.label}
-            className="group relative overflow-hidden rounded-2xl border border-[#e8eaf1] bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
-          >
-            <div
-              className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${item.accent}`}
-            />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-medium text-[#9098b1]">
-                  {item.label}
-                </p>
-                <p className="mt-2 text-xl font-bold tracking-tight text-[#1a1a2e]">
-                  {item.value}
-                </p>
-              </div>
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-2xl transition group-hover:scale-110"
-                style={{ backgroundColor: item.soft, color: item.color }}
-              >
-                <item.icon size={17} />
-              </div>
-            </div>
-            <p className="mt-3 truncate border-t border-[#f0f1f5] pt-3 text-[10px] text-[#a0a6b7]">
-              {item.note}
-            </p>
-          </article>
-        ))}
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="rounded-3xl border border-[#e8eaf1] bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-orange-500 shadow-[0_0_0_4px_#fff1e7]" />
-                <h2 className="text-sm font-bold text-[#1a1a2e]">
-                  Lecturas de consumo
-                </h2>
-              </div>
-              <p className="mt-1 text-[11px] text-[#9098b1]">
-                Comparación entre consumo real y estimado
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] font-semibold text-[#747b91]">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-orange-500" />
-                Real
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-0.5 w-4 bg-indigo-500" />
-                Estimado
-              </span>
-            </div>
-          </div>
-          {lecturaChart.length ? (
-            <ResponsiveContainer width="100%" height={330}>
-              <AreaChart data={lecturaChart} margin={{ left: -18, right: 8 }}>
-                <defs>
-                  <linearGradient id="realGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f97316" stopOpacity={0.34} />
-                    <stop
-                      offset="100%"
-                      stopColor="#f97316"
-                      stopOpacity={0.02}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="#f0f1f7" />
-                <XAxis
-                  dataKey="fecha"
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={34}
-                />
-                <YAxis
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <ReferenceLine
-                  y={averageReading}
-                  stroke="#10b981"
-                  strokeDasharray="4 5"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="real"
-                  stroke="#f97316"
-                  strokeWidth={3}
-                  fill="url(#realGradient)"
-                  name="Consumo real"
-                  activeDot={{
-                    r: 5,
-                    fill: "#f97316",
-                    stroke: "white",
-                    strokeWidth: 3,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="estimado"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  strokeDasharray="6 5"
-                  fill="transparent"
-                  name="Estimado"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-[330px] items-center justify-center rounded-2xl bg-[#fafbfc] text-xs text-[#9098b1]">
-              No hay lecturas disponibles
             </div>
           )}
         </div>
 
-        <aside className="rounded-3xl border border-[#e8eaf1] bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-              <Sparkles size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#1a1a2e]">
-                Resumen del análisis
-              </h3>
-              <p className="text-[10px] text-[#9098b1]">
-                Indicadores destacados
-              </p>
-            </div>
-          </div>
-          <div className="mt-5 space-y-3">
-            <div
-              className={`rounded-2xl border p-3 ${maxRatio > 2 ? "border-amber-100 bg-amber-50" : "border-emerald-100 bg-emerald-50"}`}
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="text-[10px] font-bold text-[#9098b1]">
+            MEDIDOR
+            <select
+              value={meterId ?? ""}
+              onChange={(event) =>
+                setMeterId(Number(event.target.value))
+              }
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
             >
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#747b91]">
-                Pico de consumo
-              </p>
-              <p className="mt-1 text-xs font-semibold text-[#30364a]">
-                El máximo es {fmt(maxRatio, 1)}× el promedio.
-              </p>
-            </div>
-            <div
-              className={`rounded-2xl border p-3 ${periodChange > 0 ? "border-orange-100 bg-orange-50" : "border-emerald-100 bg-emerald-50"}`}
+              {meters.map((item) => (
+                <option
+                  key={item.id_medidor}
+                  value={item.id_medidor}
+                >
+                  {item.numero_serie} · {item.servicio_nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-[10px] font-bold text-[#9098b1]">
+            MES
+            <select
+              value={month}
+              onChange={(event) =>
+                setMonth(Number(event.target.value))
+              }
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
             >
-              <div className="flex items-center gap-2">
-                {periodChange > 0 ? (
-                  <TrendingUp size={14} className="text-orange-500" />
-                ) : (
-                  <TrendingDown size={14} className="text-emerald-500" />
-                )}
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#747b91]">
-                  Último periodo
-                </p>
-              </div>
-              <p className="mt-1 text-xs font-semibold text-[#30364a]">
-                {periodChange > 0 ? "Aumentó" : "Disminuyó"}{" "}
-                {fmt(Math.abs(periodChange), 1)}% respecto al anterior.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
-              <div className="flex items-center gap-2">
-                <Clock3 size={14} className="text-indigo-500" />
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#747b91]">
-                  Máximo registrado
-                </p>
-              </div>
-              <p className="mt-1 text-xs font-semibold text-[#30364a]">
-                {formatDateTime(resumen?.hora_maximo ?? null)}
-              </p>
-            </div>
-          </div>
-        </aside>
+              {MONTHS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-[10px] font-bold text-[#9098b1]">
+            TIPO DE DÍA
+            <select
+              value={dayType}
+              onChange={(event) =>
+                setDayType(event.target.value as DayType)
+              }
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
+            >
+              {DAY_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="rounded-xl bg-[#f2f3f7] px-4 py-2.5 text-xs font-bold"
+          >
+            Restablecer filtros
+          </button>
+        </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="rounded-3xl border border-[#e8eaf1] bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-[#1a1a2e]">Perfil horario</h3>
-            <p className="mt-1 text-[11px] text-[#9098b1]">
-              Patrón esperado para un día {tipoDiaLabel(tipoDia).toLowerCase()}
+      {selectedMeter && (
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <InfoCard
+            icon={Activity}
+            label="Medidor"
+            value={selectedMeter.numero_serie}
+            note={`ID ${selectedMeter.id_medidor}`}
+          />
+          <InfoCard
+            icon={Server}
+            label="Servicio"
+            value={selectedMeter.servicio_nombre}
+            note={`RPU ${selectedMeter.rpu}`}
+          />
+          <InfoCard
+            icon={MapPin}
+            label="Zona"
+            value={selectedMeter.zona_nombre}
+          />
+          <InfoCard
+            icon={BarChart3}
+            label="Tipo de servicio"
+            value={selectedMeter.tipo_servicio_nombre}
+          />
+          <InfoCard
+            icon={CalendarDays}
+            label="Periodo"
+            value={`${
+              MONTHS.find((item) => item.value === month)?.label
+            } ${analysis?.anio ?? ""}`}
+          />
+          <InfoCard
+            icon={Clock3}
+            label="Tipo de día"
+            value={
+              DAY_TYPES.find((item) => item.value === dayType)
+                ?.label ?? "Todos"
+            }
+          />
+        </section>
+      )}
+
+      {analysis && (
+        <>
+          <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <KpiCard
+              label="Consumo total"
+              value={`${formatNumber(
+                analysis.resumen.consumo_total_kwh,
+              )} kWh`}
+              icon={Zap}
+              color="#f97316"
+              note="Energía real del mes"
+            />
+            <KpiCard
+              label="Variación mensual"
+              value={variationValue}
+              icon={VariationIcon}
+              color={variationStatus.color}
+              note={variationStatus.label}
+            />
+            <KpiCard
+              label="Promedio diario"
+              value={`${formatNumber(
+                analysis.resumen.promedio_diario_kwh,
+              )} kWh`}
+              icon={Gauge}
+              color="#10b981"
+              note={`${formatNumber(
+                analysis.resumen.lecturas,
+                0,
+              )} lecturas`}
+            />
+            <KpiCard
+              label="Pico horario"
+              value={`${formatNumber(
+                analysis.resumen.pico_horario_kwh,
+              )} kWh`}
+              icon={Clock3}
+              color="#6366f1"
+              note={
+                analysis.resumen.hora_pico === null
+                  ? "Sin dato"
+                  : `${String(
+                      analysis.resumen.hora_pico,
+                    ).padStart(2, "0")}:00`
+              }
+            />
+          </section>
+
+          <section className="rounded-3xl border bg-white p-5">
+            <h2 className="text-sm font-bold">
+              Curva temporal horaria
+            </h2>
+            <p className="mb-4 text-[11px] text-[#9098b1]">
+              Promedio de consumo real y estimado por hora.
             </p>
-          </div>
-          {perfilChart.length === 0 ? (
-            <div className="flex h-[250px] flex-col items-center justify-center rounded-2xl bg-[#fafbfc] text-center">
-              <Gauge size={28} className="text-[#b0b6c8]" />
-              <p className="mt-3 text-sm font-semibold text-[#606881]">
-                Sin perfil disponible
-              </p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={perfilChart} margin={{ left: -20, right: 8 }}>
-                <CartesianGrid vertical={false} stroke="#f0f1f7" />
-                <XAxis
-                  dataKey="hora"
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  interval={2}
-                  tickLine={false}
-                  axisLine={false}
+            <ResponsiveContainer width="100%" height={330}>
+              <LineChart data={hourlyChartData}>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="#f0f1f7"
                 />
-                <YAxis
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<ChartTooltip suffix="" />} />
+                <XAxis dataKey="hora" interval={2} />
+                <YAxis />
+                <Tooltip content={<ChartTooltip />} />
                 <Line
-                  type="monotone"
-                  dataKey="factor"
-                  stroke="#6366f1"
+                  dataKey="real"
+                  name="Real"
+                  stroke="#f97316"
                   strokeWidth={3}
                   dot={false}
-                  activeDot={{
-                    r: 5,
-                    fill: "#6366f1",
-                    stroke: "white",
-                    strokeWidth: 3,
-                  }}
-                  name="Factor"
+                />
+                <Line
+                  dataKey="estimado"
+                  name="Estimado"
+                  stroke="#6366f1"
+                  strokeDasharray="5 5"
+                  dot={false}
                 />
               </LineChart>
             </ResponsiveContainer>
-          )}
-        </div>
-        <div className="rounded-3xl border border-[#e8eaf1] bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <h3 className="text-sm font-bold text-[#1a1a2e]">
-              Comparación de periodos
-            </h3>
-            <p className="mt-1 text-[11px] text-[#9098b1]">
-              Consumo real por periodo de facturación
-            </p>
-          </div>
-          {periodosChart.length ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={periodosChart} margin={{ left: -18, right: 8 }}>
-                <CartesianGrid vertical={false} stroke="#f0f1f7" />
-                <XAxis
-                  dataKey="periodo"
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 9, fill: "#9098b1" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="consumo" name="Consumo" radius={[7, 7, 0, 0]}>
-                  {periodosChart.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={entry.latest ? "#f97316" : "#a5b4fc"}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-[250px] items-center justify-center rounded-2xl bg-[#fafbfc] text-xs text-[#9098b1]">
-              No hay periodos disponibles
-            </div>
-          )}
-        </div>
-      </section>
+          </section>
 
-      <section className="overflow-hidden rounded-3xl border border-[#e8eaf1] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#f0f1f7] p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-              <CalendarRange size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#1a1a2e]">
-                Periodos de facturación
-              </h3>
-              <p className="text-[10px] text-[#9098b1]">
-                Histórico de consumo y clasificación
-              </p>
-            </div>
-          </div>
-          <span className="rounded-full bg-[#f2f3f7] px-2.5 py-1 text-[10px] font-bold text-[#747b91]">
-            {periodos.length} periodos
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left text-xs">
-            <thead className="bg-[#fafbfc] text-[10px] font-bold uppercase tracking-wider text-[#9098b1]">
-              <tr>
-                <th className="px-5 py-3">Folio</th>
-                <th>Periodo</th>
-                <th>Tarifa</th>
-                <th className="text-right">Consumo</th>
-                <th className="px-5 text-right">Clasificación</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f0f1f7]">
-              {periodos.map((item) => (
-                <tr
-                  key={item.id_periodo}
-                  className="transition hover:bg-[#fafaff]"
-                >
-                  <td className="px-5 py-4 font-bold text-[#30364a]">
-                    {item.folio}
-                  </td>
-                  <td>
-                    <p className="font-semibold text-[#606881]">
-                      {formatDate(item.fecha_inicio)}{" "}
-                      <span className="mx-1 text-[#c2c6d2]">→</span>{" "}
-                      {formatDate(item.fecha_fin)}
-                    </p>
-                  </td>
-                  <td>
-                    <span className="rounded-lg bg-indigo-50 px-2.5 py-1 font-bold text-indigo-700">
-                      {item.tarifa_codigo}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <span className="font-bold text-[#1a1a2e]">
-                      {fmt(item.consumo_real_kwh)}
-                    </span>{" "}
-                    <span className="text-[10px] text-[#9098b1]">kWh</span>
-                  </td>
-                  <td className="px-5 text-right">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${item.clasificacion_dac ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${item.clasificacion_dac ? "bg-red-500" : "bg-emerald-500"}`}
+          <section className="grid gap-4 xl:grid-cols-2">
+            <div className="rounded-3xl border bg-white p-5">
+              <h2 className="text-sm font-bold">
+                Comparación enero, febrero y marzo
+              </h2>
+              <ResponsiveContainer width="100%" height={290}>
+                <BarChart data={monthlyChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="nombre_mes" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar
+                    dataKey="consumo_total_kwh"
+                    name="Consumo"
+                    radius={[8, 8, 0, 0]}
+                  >
+                    {monthlyChartData.map((item, index) => (
+                      <Cell
+                        key={index}
+                        fill={
+                          item.active ? "#f97316" : "#a5b4fc"
+                        }
                       />
-                      {item.clasificacion_dac ? "DAC" : "Normal"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="rounded-3xl border bg-white p-5">
+              <h2 className="text-sm font-bold">
+                Perfil horario promedio
+              </h2>
+              <p className="text-[11px] text-[#9098b1]">
+                Comportamiento típico del medidor durante 24 horas.
+              </p>
+              <ResponsiveContainer width="100%" height={290}>
+                <AreaChart data={hourlyChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="hora" interval={2} />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area
+                    dataKey="real"
+                    name="Consumo"
+                    stroke="#6366f1"
+                    fill="#e0e7ff"
+                    strokeWidth={3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border bg-white p-5">
+            <h2 className="text-sm font-bold">
+              Mapa de calor horario
+            </h2>
+            <p className="mb-5 text-[11px] text-[#9098b1]">
+              Consumo promedio por día y hora; gris representa
+              ausencia de lecturas.
+            </p>
+            <Heatmap data={analysis.mapa_calor} />
+          </section>
+
+          <section className="rounded-3xl border bg-white p-5">
+            <h2 className="text-sm font-bold">
+              Resumen del análisis
+            </h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SummaryCard
+                label="Consumo anterior"
+                value={`${formatNumber(
+                  analysis.resumen.consumo_anterior_kwh,
+                )} kWh`}
+                description={
+                  variationStatus.comparable
+                    ? "Consumo utilizado como base de comparación."
+                    : variationStatus.description
+                }
+              />
+              <SummaryCard
+                label="Promedio por lectura"
+                value={`${formatNumber(
+                  analysis.resumen.promedio_por_lectura_kwh,
+                )} kWh`}
+              />
+              <SummaryCard
+                label="Lecturas procesadas"
+                value={formatNumber(
+                  analysis.resumen.lecturas,
+                  0,
+                )}
+              />
+              <SummaryCard
+                label="Tendencia frente al mes anterior"
+                value={variationStatus.label}
+                description={variationStatus.description}
+                color={variationStatus.color}
+                background={variationStatus.soft}
+              />
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
