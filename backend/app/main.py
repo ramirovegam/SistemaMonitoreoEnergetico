@@ -1,25 +1,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers.zonas import router as zonas_router
-from .routers.servicios import router as servicios_router
-from .routers.medidores import router as medidores_router
 from .routers.alertas import router as alertas_router
-from .routers.tarifas import router as tarifas_router
 from .routers.analisis_energetico import router as analisis_energetico_router
-from .routers.historial_lecturas import (
-    router as historial_lecturas_router,
+from .routers.calendario_energetico import (
+    router as calendario_energetico_router,
 )
-from .routers.dashboard import (
-    router as dashboard_router,
-)
-from .routers.calendario import router as calendario_router
+from .routers.dashboard import router as dashboard_router
+from .routers.historial_lecturas import router as historial_lecturas_router
+from .routers.medidores import router as medidores_router
+from .routers.servicios import router as servicios_router
+from .routers.tarifas import router as tarifas_router
+from .routers.zonas import router as zonas_router
 
 
 app = FastAPI(
     title="SIMET API",
-    description="API del sistema de monitoreo energético",
-    version="1.0.0",
+    description="API del Sistema de Monitoreo Energético de Toluca",
+    version="1.1.0",
 )
 
 
@@ -37,23 +35,29 @@ app.add_middleware(
 )
 
 
+app.include_router(dashboard_router)
 app.include_router(zonas_router)
 app.include_router(servicios_router)
 app.include_router(medidores_router)
+app.include_router(historial_lecturas_router)
+app.include_router(analisis_energetico_router)
+app.include_router(calendario_energetico_router)
 app.include_router(alertas_router)
 app.include_router(tarifas_router)
-app.include_router(analisis_energetico_router)
-app.include_router(
-    historial_lecturas_router,
-)
-app.include_router(dashboard_router)
-app.include_router(
-    calendario_router,
-    prefix="/api",
-)
 
-@app.get("/")
+
+@app.get("/", tags=["Sistema"])
 def inicio():
     return {
         "mensaje": "API SIMET funcionando",
+        "version": app.version,
+        "documentacion": "/docs",
+    }
+
+
+@app.get("/health", tags=["Sistema"])
+def health_check():
+    return {
+        "status": "ok",
+        "servicio": "SIMET API",
     }
