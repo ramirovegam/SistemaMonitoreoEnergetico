@@ -1,197 +1,425 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import {
-  LayoutDashboard, Map, Home, Activity, Bell, BarChart2, Settings,
-  Zap, Menu, X, ChevronLeft, ChevronRight, DollarSign, FileText, Leaf, Package,
+  Activity,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Home,
+  LayoutDashboard,
+  LineChart,
+  Map,
+  Menu,
+  X,
+  Zap,
 } from "lucide-react";
+
+import Alerts from "./components/Alerts";
 import Dashboard from "./components/Dashboard";
-import Zones from "./components/Zones";
+import EnergyAnalysis from "./components/EnergyAnalysis";
+import EnergyCalendar from "./components/EnergyCalendar";
 import Households from "./components/Households";
 import Meters from "./components/Meters";
-import AssetManagement from "./components/AssetManagement";
-import Alerts from "./components/Alerts";
-import Analytics from "./components/Analytics";
+import ReadingHistory from "./components/ReadingHistory";
 import Tariffs from "./components/Tariffs";
-import Reports from "./components/Reports";
-import Efficiency from "./components/Efficiency";
-import Admin from "./components/Admin";
+import Zones from "./components/Zones";
 import { summaryStats } from "./data/synthetic";
 
-type Page = "dashboard" | "zonas" | "hogares" | "medidores" | "activos" | "alertas" | "analitica" | "tarifas" | "reportes" | "eficiencia" | "admin";
+type Page =
+  | "dashboard"
+  | "zonas"
+  | "hogares"
+  | "medidores"
+  | "analisis-energetico"
+  | "historial-lecturas"
+  | "calendario-energetico"
+  | "alertas"
+  | "tarifas";
 
-const navItems: { key: Page; label: string; icon: React.ComponentType<any>; badge?: number; group?: string }[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "zonas", label: "Zonas", icon: Map },
-  { key: "hogares", label: "Hogares", icon: Home },
-  { key: "medidores", label: "Medidores", icon: Activity },
-  { key: "activos", label: "Activos Energéticos", icon: Package },
-  { key: "alertas", label: "Alertas", icon: Bell, badge: summaryStats.activeAlerts },
-  { key: "analitica", label: "Analítica", icon: BarChart2 },
-  { key: "tarifas", label: "Config. Tarifaria", icon: DollarSign },
-  { key: "reportes", label: "Reportes", icon: FileText },
-  { key: "eficiencia", label: "Eficiencia Energética", icon: Leaf },
-  { key: "admin", label: "Administración", icon: Settings },
+interface NavItem {
+  key: Page;
+  label: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+  badge?: number;
+}
+
+interface SidebarProps {
+  page: Page;
+  onPageChange: (page: Page) => void;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+}
+
+interface NavigateDetail {
+  page?: Page;
+  idZona?: number;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    key: "zonas",
+    label: "Zonas",
+    icon: Map,
+  },
+  {
+    key: "hogares",
+    label: "Servicios",
+    icon: Home,
+  },
+  {
+    key: "medidores",
+    label: "Medidores",
+    icon: Activity,
+  },
+  {
+    key: "analisis-energetico",
+    label: "Análisis Energético",
+    icon: LineChart,
+  },
+  {
+    key: "historial-lecturas",
+    label: "Historial de Lecturas",
+    icon: BookOpen,
+  },
+  {
+    key: "calendario-energetico",
+    label: "Calendario Energético",
+    icon: CalendarDays,
+  },
+  {
+    key: "alertas",
+    label: "Alertas",
+    icon: Bell,
+    badge: summaryStats.activeAlerts,
+  },
+  {
+    key: "tarifas",
+    label: "Config. Tarifaria",
+    icon: DollarSign,
+  },
 ];
 
-function Sidebar({ page, setPage, collapsed, setCollapsed }: {
-  page: Page; setPage: (p: Page) => void;
-  collapsed: boolean; setCollapsed: (c: boolean) => void;
+function NavButton({
+  item,
+  active,
+  collapsed = false,
+  onClick,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed?: boolean;
+  onClick: () => void;
 }) {
-  return (
-    <aside className={`flex flex-col bg-white border-r border-[#eef0f7] transition-all duration-300 ${collapsed ? "w-[72px]" : "w-60"} flex-shrink-0 relative`}>
-      {/* Decorative blob */}
-      <div className="blob w-48 h-48 bg-[#fff4ea] opacity-60 -top-12 -right-12" />
+  const Icon = item.icon;
 
-      {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-6 ${collapsed ? "justify-center" : ""}`}>
-        <div className="w-10 h-10 rounded-2xl gradient-orange flex items-center justify-center flex-shrink-0 shadow-lg" style={{ boxShadow: "0 4px 14px rgba(255,138,31,0.4)" }}>
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? item.label : undefined}
+      className={`nav-item relative flex items-center gap-3 px-3 py-2.5 text-left ${
+        active ? "active text-white" : "text-[#9098b1]"
+      } ${collapsed ? "justify-center" : ""}`}
+    >
+      <Icon size={18} />
+
+      {!collapsed && (
+        <>
+          <span className="flex-1 text-[13px] font-medium">
+            {item.label}
+          </span>
+
+          {item.badge !== undefined && item.badge > 0 && (
+            <span
+              className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[9px] font-bold ${
+                active
+                  ? "bg-white/20 text-white"
+                  : "bg-red-50 text-red-600"
+              }`}
+            >
+              {item.badge > 99 ? "99+" : item.badge}
+            </span>
+          )}
+        </>
+      )}
+
+      {collapsed && item.badge !== undefined && item.badge > 0 && (
+        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+      )}
+    </button>
+  );
+}
+
+function Sidebar({
+  page,
+  onPageChange,
+  collapsed,
+  onCollapsedChange,
+}: SidebarProps) {
+  return (
+    <aside
+      className={`relative flex flex-shrink-0 flex-col overflow-hidden border-r border-[#eef0f7] bg-white transition-all duration-300 ${
+        collapsed ? "w-[72px]" : "w-60"
+      }`}
+    >
+      <div className="blob -right-12 -top-12 h-48 w-48 bg-[#fff4ea] opacity-60" />
+
+      <div
+        className={`flex items-center gap-3 px-4 py-6 ${
+          collapsed ? "justify-center" : ""
+        }`}
+      >
+        <div className="gradient-orange flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl shadow-lg">
           <Zap size={18} className="text-white" />
         </div>
+
         {!collapsed && (
           <div>
-            <div className="text-base font-bold text-[#1a1a2e]" style={{ fontFamily: "Nunito, sans-serif" }}>SIMET</div>
-            <div className="text-[10px] text-[#9098b1] -mt-0.5">Monitoreo Energético</div>
+            <div className="text-base font-bold text-[#1a1a2e]">
+              SIMET
+            </div>
+            <div className="text-[10px] text-[#9098b1]">
+              Monitoreo Energético
+            </div>
           </div>
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 flex flex-col gap-1">
-        {navItems.map(item => {
-          const Icon = item.icon;
-          const active = page === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => setPage(item.key)}
-              title={collapsed ? item.label : undefined}
-              className={`nav-item flex items-center gap-3 px-3 py-2.5 text-left relative ${
-                active ? "active text-white" : "text-[#9098b1]"
-              } ${collapsed ? "justify-center" : ""}`}
-            >
-              <Icon size={18} className="flex-shrink-0" />
-              {!collapsed && <span className="text-[13px] font-medium">{item.label}</span>}
-              {item.badge && item.badge > 0 && (
-                <span className={`${collapsed ? "absolute top-1.5 right-1.5" : "ml-auto"} min-w-[18px] h-[18px] rounded-full bg-[#ef4444] text-white text-[9px] font-bold flex items-center justify-center px-1`}>
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
+        {NAV_ITEMS.map((item) => (
+          <NavButton
+            key={item.key}
+            item={item}
+            active={page === item.key}
+            collapsed={collapsed}
+            onClick={() => onPageChange(item.key)}
+          />
+        ))}
       </nav>
 
-      {/* User + collapse */}
-      <div className="px-3 pb-5 flex flex-col gap-2">
-        <div className="border-t border-[#f0f1f7] pt-3">
-          {!collapsed && (
-            <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[#f8f9fc]">
-              <div className="flex-1 min-w-0">
-              </div>
-            </div>
-          )}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[#9098b1] hover:bg-[#f2f3f7] hover:text-[#ff8a1f] transition-all text-xs"
-          >
-            {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /><span>Colapsar</span></>}
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={() => onCollapsedChange(!collapsed)}
+        className="m-3 flex items-center justify-center rounded-xl p-2 text-xs text-[#9098b1] transition hover:bg-[#f6f7fa]"
+      >
+        {collapsed ? (
+          <ChevronRight size={14} />
+        ) : (
+          <>
+            <ChevronLeft size={14} />
+            <span className="ml-1">Colapsar</span>
+          </>
+        )}
+      </button>
     </aside>
   );
+}
+
+function MobileSidebar({
+  page,
+  open,
+  onClose,
+  onPageChange,
+}: {
+  page: Page;
+  open: boolean;
+  onClose: () => void;
+  onPageChange: (page: Page) => void;
+}) {
+  return (
+    <>
+      {open && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-40 bg-[#1a1a2e]/30 backdrop-blur-sm lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <div
+        className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:hidden ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex h-full w-64 flex-col bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b px-4 py-5">
+            <div className="flex items-center gap-3">
+              <div className="gradient-orange flex h-9 w-9 items-center justify-center rounded-xl">
+                <Zap size={17} className="text-white" />
+              </div>
+              <div>
+                <b className="block text-[#1a1a2e]">SIMET</b>
+                <span className="text-[9px] text-[#9098b1]">
+                  Monitoreo Energético
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Cerrar menú"
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f3f7]"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+            {NAV_ITEMS.map((item) => (
+              <NavButton
+                key={item.key}
+                item={item}
+                active={page === item.key}
+                onClick={() => onPageChange(item.key)}
+              />
+            ))}
+          </nav>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PageContent({
+  page,
+  selectedZonaId,
+}: {
+  page: Page;
+  selectedZonaId: number | null;
+}) {
+  switch (page) {
+    case "dashboard":
+      return <Dashboard />;
+    case "zonas":
+      return <Zones initialZonaId={selectedZonaId} />;
+    case "hogares":
+      return <Households />;
+    case "medidores":
+      return <Meters />;
+    case "analisis-energetico":
+      return <EnergyAnalysis />;
+    case "historial-lecturas":
+      return <ReadingHistory />;
+    case "calendario-energetico":
+      return <EnergyCalendar />;
+    case "alertas":
+      return <Alerts />;
+    case "tarifas":
+      return <Tariffs />;
+    default:
+      return <Dashboard />;
+  }
 }
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [selectedZonaId, setSelectedZonaId] =
+    useState<number | null>(null);
+
+  useEffect(() => {
+    const navigate = (event: Event): void => {
+      const customEvent = event as CustomEvent<NavigateDetail>;
+      const detail = customEvent.detail;
+
+      if (!detail?.page) {
+        return;
+      }
+
+      if (
+        detail.page === "zonas" &&
+        detail.idZona !== undefined
+      ) {
+        setSelectedZonaId(detail.idZona);
+      }
+
+      setPage(detail.page);
+      setMobileOpen(false);
+    };
+
+    window.addEventListener("simet:navigate", navigate);
+
+    return () => {
+      window.removeEventListener("simet:navigate", navigate);
+    };
+  }, []);
+
+  const currentPageLabel = useMemo(
+    () =>
+      NAV_ITEMS.find((item) => item.key === page)?.label ?? "SIMET",
+    [page],
+  );
+
+  const currentDate = useMemo(
+    () =>
+      new Date().toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    [],
+  );
+
+  const changePage = (newPage: Page) => {
+    setPage(newPage);
+    setMobileOpen(false);
+  };
 
   return (
-    <div className="flex h-full bg-[#f2f3f7] overflow-hidden">
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-[#1a1a2e]/30 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+    <div className="flex h-full overflow-hidden bg-[#f2f3f7]">
+      <MobileSidebar
+        page={page}
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        onPageChange={changePage}
+      />
 
-      {/* Mobile drawer */}
-      <div className={`fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="flex flex-col w-60 h-full bg-white shadow-2xl">
-          <div className="flex items-center justify-between px-4 py-5 border-b border-[#f0f1f7]">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl gradient-orange flex items-center justify-center shadow-md">
-                <Zap size={16} className="text-white" />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-[#1a1a2e]" style={{ fontFamily: "Nunito, sans-serif" }}>SIMET</div>
-                <div className="text-[9px] text-[#9098b1]">Monitoreo Energético</div>
-              </div>
-            </div>
-            <button onClick={() => setMobileOpen(false)} className="p-1 rounded-lg hover:bg-[#f2f3f7]">
-              <X size={16} className="text-[#9098b1]" />
-            </button>
-          </div>
-          <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
-            {navItems.map(item => {
-              const Icon = item.icon;
-              const active = page === item.key;
-              return (
-                <button key={item.key} onClick={() => { setPage(item.key); setMobileOpen(false); }}
-                  className={`nav-item flex items-center gap-3 px-3 py-2.5 text-left ${active ? "active text-white" : "text-[#9098b1]"}`}>
-                  <Icon size={18} />
-                  <span className="text-[13px] font-medium">{item.label}</span>
-                  {item.badge && item.badge > 0 && (
-                    <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-[#ef4444] text-white text-[9px] font-bold flex items-center justify-center px-1">{item.badge}</span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
       <div className="hidden lg:flex">
-        <Sidebar page={page} setPage={setPage} collapsed={collapsed} setCollapsed={setCollapsed} />
+        <Sidebar
+          page={page}
+          onPageChange={changePage}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+        />
       </div>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar */}
-        <header className="flex items-center gap-4 px-6 py-4 bg-white border-b border-[#eef0f7]" style={{ boxShadow: "0 1px 4px rgba(26,26,46,0.04)" }}>
-          <button className="lg:hidden p-1.5 rounded-xl hover:bg-[#f2f3f7]" onClick={() => setMobileOpen(true)}>
-            <Menu size={18} className="text-[#9098b1]" />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex items-center gap-4 border-b border-[#eef0f7] bg-white px-4 py-4 sm:px-6">
+          <button
+            type="button"
+            aria-label="Abrir menú"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f2f3f7] lg:hidden"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu size={18} />
           </button>
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold text-[#1a1a2e]">
-              {navItems.find(n => n.key === page)?.label}
+
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-sm font-semibold text-[#1a1a2e]">
+              {currentPageLabel}
             </h2>
-            <p className="text-[10px] text-[#9098b1]">SIMET · Toluca Smart City · {new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-[#10b981] bg-[#ecfdf5] px-3 py-1.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] pulse-dot" />
-              <span className="font-medium hidden sm:block">Operativo</span>
-            </div>
-            <button className="relative p-2 rounded-xl hover:bg-[#f2f3f7] transition-colors">
-              <Bell size={16} className="text-[#9098b1]" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#ef4444]" />
-            </button>
+            <p className="truncate text-[10px] capitalize text-[#9098b1]">
+              SIMET · Toluca Smart City · {currentDate}
+            </p>
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          {page === "dashboard" && <Dashboard />}
-          {page === "zonas" && <Zones />}
-          {page === "hogares" && <Households />}
-          {page === "medidores" && <Meters />}
-          {page === "activos" && <AssetManagement />}
-          {page === "alertas" && <Alerts />}
-          {page === "analitica" && <Analytics />}
-          {page === "tarifas" && <Tariffs />}
-          {page === "reportes" && <Reports />}
-          {page === "eficiencia" && <Efficiency />}
-          {page === "admin" && <Admin />}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <PageContent
+            page={page}
+            selectedZonaId={selectedZonaId}
+          />
         </main>
       </div>
     </div>
