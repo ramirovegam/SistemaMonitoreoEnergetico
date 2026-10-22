@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routers.alertas import router as alertas_router
 from .routers.analisis_energetico import router as analisis_energetico_router
+from .routers.calendario import router as calendario_router
 from .routers.calendario_energetico import (
     router as calendario_energetico_router,
 )
@@ -41,6 +42,7 @@ app.include_router(servicios_router)
 app.include_router(medidores_router)
 app.include_router(historial_lecturas_router)
 app.include_router(analisis_energetico_router)
+app.include_router(calendario_router, prefix="/api")
 app.include_router(calendario_energetico_router)
 app.include_router(alertas_router)
 app.include_router(tarifas_router)
