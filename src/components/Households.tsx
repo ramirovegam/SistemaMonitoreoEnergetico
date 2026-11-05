@@ -227,17 +227,6 @@ export default function Households(){
     setCarouselImgSrc(fallbackLocal);
   }, [selectedType, typeIndex, carouselGalleryIndex, typeExample?.tipo_servicio_categoria]);
 
-  useEffect(()=>{
-    const interval = setInterval(()=>{
-      const normSel = normalize(selectedType || "");
-      const mapItem = SERVICIOS_CARRUSEL_DATA.find(m=>normalize(m.tipo)===normSel) || SERVICIOS_CARRUSEL_DATA.find(m=>normSel.includes(normalize(m.tipo)));
-      if(mapItem?.galeria && mapItem.galeria.length > 1){
-        setCarouselGalleryIndex(prev => (prev + 1) % mapItem.galeria!.length);
-      }
-    }, 5000);
-    return ()=>clearInterval(interval);
-  }, [selectedType]);
-
   if(loading)return <div className="card flex items-center justify-center gap-3 p-8"><RefreshCw className="animate-spin text-[var(--color-accent)]"/><p className="text-sm text-[var(--color-muted)]">Cargando servicios desde PostgreSQL...</p></div>;
   if(error)return <div className="card p-8 text-center"><h2 className="font-bold">No se pudieron cargar los servicios</h2><p className="mt-2 text-xs text-[var(--color-muted)]">{error}</p><button type="button" onClick={()=>void load()} className="mt-4 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-[var(--accent-contrast)]">Reintentar</button></div>;
 
