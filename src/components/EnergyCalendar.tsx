@@ -5,6 +5,8 @@ import {
   Bell,
   CakeSlice,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Filter,
   Palmtree,
@@ -27,14 +29,23 @@ const MONTHS = [
   { value: 1, label: "Enero" },
   { value: 2, label: "Febrero" },
   { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
 ];
 
-const WEEK_DAYS = ["L", "M", "M", "J", "V", "S", "D"];
+const WEEK_DAYS = ["L", "M", "X", "J", "V", "S", "D"];
 
 const EMPTY_CALENDAR: CalendarioEnergeticoResponse = {
   anio: 2026,
   mes_inicio: 1,
-  mes_fin: 3,
+  mes_fin: 12,
   resumen: {
     dias_registrados: 0,
     dias_festivos: 0,
@@ -405,7 +416,7 @@ function DetailCard({
 export default function EnergyCalendar() {
   const [calendar, setCalendar] =
     useState<CalendarioEnergeticoResponse>(EMPTY_CALENDAR);
-  const [year] = useState(2026);
+  const [year, setYear] = useState(2026);
   const [displayFilter, setDisplayFilter] =
     useState<DisplayFilter>("todos");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -419,7 +430,7 @@ export default function EnergyCalendar() {
       try {
         setLoading(true);
         setError(null);
-        setCalendar(await obtenerCalendarioEnergetico(year, 1, 3));
+        setCalendar(await obtenerCalendarioEnergetico(year, 1, 12));
       } catch (err) {
         setError(
           err instanceof Error
@@ -446,13 +457,38 @@ export default function EnergyCalendar() {
 
   const daysByMonth = useMemo(() => {
     const map = new Map<number, DiaCalendario[]>();
-    for (const month of MONTHS) map.set(month.value, []);
-    for (const day of visibleDays) {
+    for (const day of calendar.dias) {
       const month = parseLocalDate(day.fecha).getMonth() + 1;
-      map.set(month, [...(map.get(month) ?? []), day]);
+      const days = map.get(month);
+      if (days) days.push(day);
+      else map.set(month, [day]);
     }
     return map;
-  }, [visibleDays]);
+  }, [calendar.dias]);
+
+  const monthsWithData = useMemo(() => {
+    const visibleDates = new Set(visibleDays.map((day) => day.fecha));
+    return [...daysByMonth.entries()]
+      .filter(([, days]) => days.some((day) => visibleDates.has(day.fecha)))
+      .sort((a, b) => a[0] - b[0])
+      .map(([month, days]) => ({
+        month,
+        days: days.filter((day) => visibleDates.has(day.fecha)),
+      }));
+  }, [daysByMonth, visibleDays]);
+
+  const labelsMes = (month: number) =>
+    MONTHS.find((item) => item.value === month)?.label ?? "";
+  const primerMes = monthsWithData.length > 0 ? monthsWithData[0].month : null;
+  const ultimoMes =
+    monthsWithData.length > 0 ? monthsWithData[monthsWithData.length - 1].month : null;
+  const rangoMeses =
+    monthsWithData.length === 0
+      ? "enero a diciembre"
+      : monthsWithData.length === 1
+        ? labelsMes(primerMes ?? 1)
+        : `${labelsMes(primerMes ?? 1)} a ${labelsMes(ultimoMes ?? primerMes ?? 1)}`;
+  const descripcionCalendario = `Festivos, vacaciones, temperatura y actividad energética de ${rangoMeses} de ${year}.`;
 
   const openDay = async (day: DiaCalendario) => {
     try {
@@ -488,7 +524,7 @@ export default function EnergyCalendar() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Calendario energético"
-        description="Festivos, vacaciones, temperatura y actividad energética de enero a marzo de 2026."
+        description={descripcionCalendario}
         meta={
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-[var(--color-fg-secondary)]">
             <span className="flex items-center gap-1.5">
@@ -520,9 +556,27 @@ export default function EnergyCalendar() {
 
       <section className="flex flex-wrap items-center gap-3 rounded-3xl border bg-surface p-4">
         <Filter size={16} className="text-[var(--color-info)]" />
-        <span className="rounded-xl border border-border bg-[var(--color-bg)] px-3 py-2 text-xs font-bold text-[var(--color-fg-secondary)]">
-          Año {year}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setYear((current) => Math.max(2000, current - 1))}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border bg-[var(--color-bg)] text-[var(--color-fg-secondary)] transition hover:border-[var(--color-accent)]"
+            aria-label="Año anterior"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="rounded-xl border border-border bg-[var(--color-bg)] px-3 py-2 text-xs font-bold text-[var(--color-fg-secondary)]">
+            Año {year}
+          </span>
+          <button
+            type="button"
+            onClick={() => setYear((current) => Math.min(2100, current + 1))}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border bg-[var(--color-bg)] text-[var(--color-fg-secondary)] transition hover:border-[var(--color-accent)]"
+            aria-label="Año siguiente"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
         <div className="flex flex-wrap gap-2">
           {[
             ["todos", "Todos los días"],
@@ -549,18 +603,24 @@ export default function EnergyCalendar() {
         </span>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-        {MONTHS.map((month) => (
-          <MonthCalendar
-            key={month.value}
-            month={month.value}
-            year={year}
-            days={daysByMonth.get(month.value) ?? []}
-            selectedDate={selectedDate}
-            onSelect={(day) => void openDay(day)}
-          />
-        ))}
-      </section>
+      {monthsWithData.length > 0 ? (
+        <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+          {monthsWithData.map(({ month, days }) => (
+            <MonthCalendar
+              key={month}
+              month={month}
+              year={year}
+              days={days}
+              selectedDate={selectedDate}
+              onSelect={(day) => void openDay(day)}
+            />
+          ))}
+        </section>
+      ) : (
+        <div className="card p-8 text-center text-sm text-[var(--color-muted)]">
+          No hay días registrados para el año {year} con los filtros seleccionados.
+        </div>
+      )}
 
       <p className="text-center text-[10px] text-[var(--color-muted)]">
         Selecciona cualquier día para consultar temperatura, factor estacional, consumo, lecturas, eventos y alertas.
