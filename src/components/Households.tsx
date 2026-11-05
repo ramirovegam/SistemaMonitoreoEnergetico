@@ -20,46 +20,46 @@ const SERVICIOS_CARRUSEL_DATA = [
     id: 1,
     tipo: "Comercial",
     ubicacionBusqueda: "San Pablo Autopan, Toluca de Lerdo, Estado de México, México",
-    imgFallback: "/src/img/servicios/servicio_1.jpg",
+    imgFallback: "/img/servicios/servicio_1.jpg",
     galeria: [
-      "/src/img/servicios/servicio_1.jpg",
-      "/src/img/servicios/servicio_2.jpg",
-      "/src/img/servicios/servicio_6.jpg",
-      "/src/img/servicios/servicio_10.jpg",
+      "/img/servicios/servicio_1.jpg",
+      "/img/servicios/servicio_2.jpg",
+      "/img/servicios/servicio_6.jpg",
+      "/img/servicios/servicio_10.jpg",
     ],
   },
   {
     id: 2,
     tipo: "Industrial",
     ubicacionBusqueda: "Santa María Totoltepec, Toluca de Lerdo, Estado de México, México",
-    imgFallback: "/src/img/servicios/servicio_3.jpg",
+    imgFallback: "/img/servicios/servicio_3.jpg",
     galeria: [
-      "/src/img/servicios/servicio_3.jpg",
-      "/src/img/servicios/servicio_4.jpg",
-      "/src/img/servicios/servicio_9.jpg",
+      "/img/servicios/servicio_3.jpg",
+      "/img/servicios/servicio_4.jpg",
+      "/img/servicios/servicio_9.jpg",
     ],
   },
   {
     id: 3,
     tipo: "Residencial",
     ubicacionBusqueda: "San Buenaventura, Toluca de Lerdo, Estado de México, México",
-    imgFallback: "/src/img/servicios/servicio_5.jpg",
+    imgFallback: "/img/servicios/servicio_5.jpg",
     galeria: [
-      "/src/img/servicios/servicio_5.jpg",
-      "/src/img/servicios/servicio_7.jpg",
-      "/src/img/servicios/servicio_8.jpg",
+      "/img/servicios/servicio_5.jpg",
+      "/img/servicios/servicio_7.jpg",
+      "/img/servicios/servicio_8.jpg",
     ],
   },
   {
     id: 4,
     tipo: "Servicios",
     ubicacionBusqueda: "San Lorenzo Tepaltitlán, Toluca de Lerdo, Estado de México, México",
-    imgFallback: "/src/img/servicios/servicio_2.jpg",
+    imgFallback: "/img/servicios/servicio_2.jpg",
     galeria: [
-      "/src/img/servicios/servicio_2.jpg",
-      "/src/img/servicios/servicio_6.jpg",
-      "/src/img/servicios/servicio_10.jpg",
-      "/src/img/servicios/servicio_1.jpg",
+      "/img/servicios/servicio_2.jpg",
+      "/img/servicios/servicio_6.jpg",
+      "/img/servicios/servicio_10.jpg",
+      "/img/servicios/servicio_1.jpg",
     ],
   },
 ];
@@ -86,24 +86,24 @@ const normalize = (value: string): string => value.normalize("NFD").replace(/[\u
 
 function typeImage(typeName: string, category: string): string {
   const text = normalize(`${typeName} ${category}`);
-  if (text.includes("biblioteca")) return "/src/img/BibleotecaPublica.jpg";
-  if (text.includes("cultural")) return "/src/img/CentroCultural.jpg";
-  if (text.includes("deport")) return "/src/img/CentroDeportivo.jpg";
-  if (text.includes("alumbrado")) return "/src/img/CircuitoAlumbrado.jpg";
-  if (text.includes("departamento")) return "/src/img/Departamento.jpg";
-  if (text.includes("disen") || text.includes("designer")) return "/src/img/Designer.jpg";
-  if (text.includes("gobierno") || text.includes("gubernamental")) return "/src/img/EdificioGubernamental.png";
-  if (text.includes("escuela")) return "/src/img/EscuelaPublica.png";
-  if (text.includes("hospital") || text.includes("salud")) return "/src/img/Hospital.png";
-  if (text.includes("local") || text.includes("comercial")) return "/src/img/Local.png";
-  if (text.includes("mercado")) return "/src/img/Mercado.png";
-  if (text.includes("semaforo")) return "/src/img/NodoSemaforo.png";
-  if (text.includes("parque")) return "/src/img/Parque.png";
-  if (text.includes("planta") || text.includes("industrial")) return "/src/img/Planta.png";
-  if (text.includes("pozo")) return "/src/img/Pozo.png";
-  if (text.includes("unifamiliar")) return "/src/img/ViviendaUnifamiliar.png";
-  if (text.includes("residencial") || text.includes("vivienda")) return "/src/img/ViviendaAlto.png";
-  return "/src/img/EdificioGubernamental.png";
+  if (text.includes("biblioteca")) return "/img/BibleotecaPublica.jpg";
+  if (text.includes("cultural")) return "/img/CentroCultural.jpg";
+  if (text.includes("deport")) return "/img/CentroDeportivo.jpg";
+  if (text.includes("alumbrado")) return "/img/CircuitoAlumbrado.jpg";
+  if (text.includes("departamento")) return "/img/Departamento.jpg";
+  if (text.includes("disen") || text.includes("designer")) return "/img/Designer.jpg";
+  if (text.includes("gobierno") || text.includes("gubernamental")) return "/img/EdificioGubernamental.png";
+  if (text.includes("escuela")) return "/img/EscuelaPublica.png";
+  if (text.includes("hospital") || text.includes("salud")) return "/img/Hospital.png";
+  if (text.includes("local") || text.includes("comercial")) return "/img/Local.png";
+  if (text.includes("mercado")) return "/img/Mercado.png";
+  if (text.includes("semaforo")) return "/img/NodoSemaforo.png";
+  if (text.includes("parque")) return "/img/Parque.png";
+  if (text.includes("planta") || text.includes("industrial")) return "/img/Planta.png";
+  if (text.includes("pozo")) return "/img/Pozo.png";
+  if (text.includes("unifamiliar")) return "/img/ViviendaUnifamiliar.png";
+  if (text.includes("residencial") || text.includes("vivienda")) return "/img/ViviendaAlto.png";
+  return "/img/EdificioGubernamental.png";
 }
 
 function normalizeMeter(row: Record<string, unknown>): MedidorServicio {
