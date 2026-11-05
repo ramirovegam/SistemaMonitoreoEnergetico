@@ -1,4 +1,4 @@
-export type Zone = "Norte" | "Centro" | "Sur" | "Industrial";
+﻿export type Zone = "Norte" | "Centro" | "Sur" | "Industrial";
 export type AlertType =
   | "Pico de demanda"
   | "Pérdida de comunicación"
@@ -195,7 +195,7 @@ export const zoneData: ZoneData[] = [
     avgConsumption: 192,
     households: 20,
     alerts: alerts.filter(a => a.zone === "Norte").length,
-    color: "#00c8ff",
+    color: "var(--chart-5)",
     hourlyProfile: [12, 10, 9, 8, 9, 14, 22, 35, 38, 36, 34, 33, 35, 33, 32, 34, 40, 48, 52, 50, 42, 35, 25, 16],
   },
   {
@@ -204,7 +204,7 @@ export const zoneData: ZoneData[] = [
     avgConsumption: 211,
     households: 20,
     alerts: alerts.filter(a => a.zone === "Centro").length,
-    color: "#3b82f6",
+    color: "var(--color-info)",
     hourlyProfile: [8, 7, 7, 6, 8, 18, 32, 45, 48, 46, 45, 47, 49, 48, 46, 45, 46, 44, 38, 32, 25, 18, 12, 9],
   },
   {
@@ -213,7 +213,7 @@ export const zoneData: ZoneData[] = [
     avgConsumption: 174,
     households: 20,
     alerts: alerts.filter(a => a.zone === "Sur").length,
-    color: "#8b5cf6",
+    color: "var(--chart-7)",
     hourlyProfile: [10, 9, 8, 7, 8, 12, 20, 30, 32, 30, 29, 28, 30, 29, 28, 30, 38, 46, 50, 48, 40, 32, 22, 14],
   },
   {
@@ -222,7 +222,7 @@ export const zoneData: ZoneData[] = [
     avgConsumption: 2345,
     households: 20,
     alerts: alerts.filter(a => a.zone === "Industrial").length,
-    color: "#f59e0b",
+    color: "var(--color-warning)",
     hourlyProfile: [30, 28, 25, 22, 25, 45, 75, 92, 98, 100, 99, 97, 95, 93, 96, 98, 94, 80, 60, 45, 38, 35, 32, 30],
   },
 ];
@@ -260,3 +260,4 @@ export const summaryStats = {
   todayReadings: randInt(72, 78),
   avgConsumptionByZone: 756,
 };
+

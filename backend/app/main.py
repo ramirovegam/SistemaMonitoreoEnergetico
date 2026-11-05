@@ -13,6 +13,8 @@ from .routers.medidores import router as medidores_router
 from .routers.servicios import router as servicios_router
 from .routers.tarifas import router as tarifas_router
 from .routers.zonas import router as zonas_router
+from .routers.datamart import router as datamart_router
+from .routers.generador_hsd import router as generador_hsd_router
 
 
 app = FastAPI(
@@ -46,6 +48,8 @@ app.include_router(calendario_router, prefix="/api")
 app.include_router(calendario_energetico_router)
 app.include_router(alertas_router)
 app.include_router(tarifas_router)
+app.include_router(datamart_router)
+app.include_router(generador_hsd_router)
 
 
 @app.get("/", tags=["Sistema"])

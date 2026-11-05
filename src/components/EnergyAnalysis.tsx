@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -26,9 +26,9 @@ import {
   Server,
   TrendingDown,
   TrendingUp,
-  X,
   Zap,
 } from "lucide-react";
+import { PageHeader } from "./ui/PageHeader";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
@@ -148,8 +148,8 @@ function getVariationStatus(
 ): VariationStatus {
   if (previousConsumption <= 0) {
     return {
-      color: "#64748b",
-      soft: "#f1f5f9",
+      color: "var(--color-muted)",
+      soft: "var(--color-surface-2)",
       label:
         selectedMonth === 1
           ? "Sin periodo anterior"
@@ -165,8 +165,8 @@ function getVariationStatus(
 
   if (value < 0) {
     return {
-      color: "#059669",
-      soft: "#ecfdf5",
+      color: "var(--color-success-strong)",
+      soft: "var(--color-success-soft)",
       label: "Disminuyó",
       description: "El consumo fue menor que el del mes anterior.",
       Icon: TrendingDown,
@@ -176,8 +176,8 @@ function getVariationStatus(
 
   if (Math.abs(value) < 0.0001) {
     return {
-      color: "#64748b",
-      soft: "#f1f5f9",
+      color: "var(--color-muted)",
+      soft: "var(--color-surface-2)",
       label: "Sin cambio",
       description: "El consumo fue igual al del mes anterior.",
       Icon: Activity,
@@ -187,8 +187,8 @@ function getVariationStatus(
 
   if (value <= 10) {
     return {
-      color: "#d97706",
-      soft: "#fffbeb",
+      color: "var(--color-warning-strong)",
+      soft: "var(--color-warning-soft)",
       label: "Aumentó moderadamente",
       description: "El consumo aumentó hasta 10% frente al mes anterior.",
       Icon: TrendingUp,
@@ -197,8 +197,8 @@ function getVariationStatus(
   }
 
   return {
-    color: "#dc2626",
-    soft: "#fef2f2",
+    color: "var(--color-danger-strong)",
+    soft: "var(--color-danger-soft)",
     label: "Aumentó considerablemente",
     description: "El consumo aumentó más de 10% frente al mes anterior.",
     Icon: TrendingUp,
@@ -216,7 +216,7 @@ function ChartTooltip({
   }
 
   return (
-    <div className="rounded-2xl bg-[#171827]/95 p-3 text-white shadow-xl">
+    <div className="rounded-2xl bg-[var(--hero-bg)] p-3 text-white shadow-xl">
       <p className="mb-2 text-[10px] text-white/50">{label}</p>
 
       {payload.map((item, index) => (
@@ -254,7 +254,7 @@ function Heatmap({ data }: { data: HeatCell[] }) {
           {Array.from({ length: 24 }, (_, hour) => (
             <span
               key={hour}
-              className="text-center text-[8px] text-[#9098b1]"
+              className="text-center text-[8px] text-[var(--color-muted)]"
             >
               {String(hour).padStart(2, "0")}
             </span>
@@ -262,7 +262,7 @@ function Heatmap({ data }: { data: HeatCell[] }) {
 
           {[1, 2, 3, 4, 5, 6, 7].map((day) => (
             <div key={day} className="contents">
-              <span className="flex items-center text-[10px] font-semibold text-[#606881]">
+              <span className="flex items-center text-[10px] font-semibold text-[var(--color-fg-secondary)]">
                 {cells.get(`${day}-0`)?.nombre_dia}
               </span>
 
@@ -286,7 +286,7 @@ function Heatmap({ data }: { data: HeatCell[] }) {
                           ? `rgba(249,115,22,${
                               0.12 + intensity * 0.88
                             })`
-                          : "#f1f2f6",
+                          : "var(--color-surface-2)",
                     }}
                   />
                 );
@@ -295,7 +295,7 @@ function Heatmap({ data }: { data: HeatCell[] }) {
           ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-end gap-2 text-[9px] text-[#9098b1]">
+        <div className="mt-3 flex items-center justify-end gap-2 text-[9px] text-[var(--color-muted)]">
           <span>Menor</span>
           {[0.15, 0.35, 0.55, 0.75, 1].map((opacity) => (
             <span
@@ -316,24 +316,24 @@ function Heatmap({ data }: { data: HeatCell[] }) {
 function LoadingScreen() {
   return (
     <div className="space-y-5">
-      <div className="h-28 animate-pulse rounded-3xl bg-[#171827]" />
-      <div className="h-96 animate-pulse rounded-3xl bg-white" />
+      <div className="h-28 animate-pulse rounded-3xl bg-[var(--hero-bg)]" />
+      <div className="h-96 animate-pulse rounded-3xl bg-surface" />
     </div>
   );
 }
 
 function UpdatingOverlay({ serial }: { serial?: string }) {
   return (
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-[#171827]/25 backdrop-blur-[2px]">
-      <div className="rounded-3xl bg-white px-8 py-7 text-center shadow-2xl">
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-overlay backdrop-blur-[2px]">
+      <div className="rounded-3xl bg-surface px-8 py-7 text-center shadow-2xl">
         <RefreshCw
           size={28}
-          className="mx-auto animate-spin text-orange-500"
+          className="mx-auto animate-spin text-[var(--color-accent)]"
         />
         <p className="mt-4 text-sm font-bold">
           Actualizando análisis del medidor
         </p>
-        <p className="mt-1 text-[11px] text-[#9098b1]">
+        <p className="mt-1 text-[11px] text-[var(--color-muted)]">
           Procesando lecturas reales de {serial ?? "medidor"}...
         </p>
       </div>
@@ -350,11 +350,11 @@ interface InfoCardProps {
 
 function InfoCard({ icon: Icon, label, value, note }: InfoCardProps) {
   return (
-    <div className="rounded-2xl border bg-white p-4">
-      <Icon size={17} className="text-orange-500" />
-      <p className="mt-3 text-[10px] text-[#9098b1]">{label}</p>
+    <div className="rounded-2xl border bg-surface p-4">
+      <Icon size={17} className="text-[var(--color-accent)]" />
+      <p className="mt-3 text-[10px] text-[var(--color-muted)]">{label}</p>
       <p className="truncate font-bold">{value}</p>
-      {note && <p className="text-[9px] text-[#9098b1]">{note}</p>}
+      {note && <p className="text-[9px] text-[var(--color-muted)]">{note}</p>}
     </div>
   );
 }
@@ -375,9 +375,9 @@ function KpiCard({
   note,
 }: KpiCardProps) {
   return (
-    <article className="rounded-2xl border bg-white p-4">
+    <article className="rounded-2xl border bg-surface p-4">
       <Icon size={17} style={{ color }} />
-      <p className="mt-3 text-[11px] text-[#9098b1]">{label}</p>
+      <p className="mt-3 text-[11px] text-[var(--color-muted)]">{label}</p>
       <p className="text-xl font-bold">{value}</p>
       <p className="mt-2 text-[10px]" style={{ color }}>
         {note}
@@ -398,17 +398,17 @@ function SummaryCard({
   label,
   value,
   description,
-  color = "#1a1a2e",
-  background = "#f8f9fc",
+  color = "var(--chart-2)",
+  background = "var(--color-surface-2)",
 }: SummaryCardProps) {
   return (
     <div className="rounded-2xl p-4" style={{ background }}>
-      <p className="text-[10px] text-[#9098b1]">{label}</p>
+      <p className="text-[10px] text-[var(--color-muted)]">{label}</p>
       <p className="font-bold" style={{ color }}>
         {value}
       </p>
       {description && (
-        <p className="mt-1 text-[9px] text-[#747b91]">
+        <p className="mt-1 text-[9px] text-[var(--color-muted)]">
           {description}
         </p>
       )}
@@ -428,6 +428,7 @@ export default function EnergyAnalysis() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const loadMeters = async () => {
@@ -482,14 +483,28 @@ export default function EnergyAnalysis() {
         );
 
         if (!response.ok) {
+          let detail = "";
+          try {
+            const body = (await response.json()) as { detail?: unknown };
+            if (typeof body.detail === "string") detail = body.detail;
+          } catch {
+            /* la respuesta de error no siempre es JSON */
+          }
+
+          const mes = MONTHS.find((item) => item.value === month)?.label ?? "";
           throw new Error(
-            `Análisis HTTP ${response.status}: ${await response.text()}`,
+            response.status === 404
+              ? detail ||
+                  `No hay lecturas para este medidor en ${mes} con el tipo de día seleccionado.`
+              : detail ||
+                  `No se pudo consultar el análisis (HTTP ${response.status}). Revisa que la API esté disponible.`,
           );
         }
 
         const data = (await response.json()) as AnalysisResponse;
         setAnalysis(data);
       } catch (err) {
+        setAnalysis(null);
         setError(
           err instanceof Error
             ? err.message
@@ -501,7 +516,7 @@ export default function EnergyAnalysis() {
     };
 
     void loadAnalysis();
-  }, [meterId, month, dayType]);
+  }, [meterId, month, dayType, retry]);
 
   const selectedMeter = useMemo(
     () =>
@@ -583,42 +598,64 @@ export default function EnergyAnalysis() {
         <UpdatingOverlay serial={selectedMeter?.numero_serie} />
       )}
 
-      <header className="rounded-3xl bg-[#171827] p-6 text-white">
-        <p className="text-[10px] font-bold uppercase tracking-[.2em] text-orange-300">
-          Inteligencia energética
-        </p>
-
-        <div className="mt-1 flex justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">
-              Análisis Energético por Medidor
-            </h1>
-            <p className="mt-2 text-xs text-white/60">
-              Selecciona un medidor; zona, servicio, RPU y tipo se
-              cargan automáticamente.
-            </p>
-          </div>
-          <Zap size={30} className="text-orange-400" />
-        </div>
-      </header>
+      <PageHeader
+        title="Análisis energético"
+        description="Consulta el consumo de un medidor por mes y tipo de día. La zona, el servicio y el RPU se cargan automáticamente."
+      />
 
       {error && (
-        <div className="flex items-center justify-between rounded-2xl bg-red-50 p-4 text-xs text-red-700">
-          <span className="flex gap-2">
-            <AlertCircle size={15} />
-            {error}
-          </span>
-          <button type="button" onClick={() => setError(null)}>
-            <X size={14} />
-          </button>
-        </div>
+        <section
+          role="alert"
+          className="rounded-3xl border border-[var(--color-danger-soft)] bg-surface p-5"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]">
+              <AlertCircle aria-hidden="true" size={18} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-[var(--color-fg)]">
+                No se pudo mostrar el análisis
+              </h2>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]">
+                {error}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {MONTHS.filter((item) => item.value !== month).map((item) => (
+                  <button
+                    type="button"
+                    key={item.value}
+                    onClick={() => setMonth(item.value)}
+                    className="rounded-xl border border-[var(--color-border)] bg-surface px-3 py-2 text-xs font-semibold text-[var(--color-fg-secondary)] hover:bg-[var(--color-surface-2)]"
+                  >
+                    Ver {item.label.toLowerCase()}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setRetry((current) => current + 1)}
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[var(--accent-contrast)]"
+                >
+                  <RefreshCw size={13} />
+                  Reintentar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="rounded-xl px-3 py-2 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
-      <section className="rounded-3xl border bg-white p-5 shadow-sm">
+      <section className="rounded-3xl border bg-surface p-5 shadow-sm">
         <h2 className="text-sm font-bold">
           Seleccionar medidor y periodo
         </h2>
-        <p className="mb-4 text-[11px] text-[#9098b1]">
+        <p className="mb-4 text-[11px] text-[var(--color-muted)]">
           Los únicos filtros del análisis son medidor, mes y tipo de
           día.
         </p>
@@ -626,7 +663,7 @@ export default function EnergyAnalysis() {
         <div className="relative mb-4">
           <Search
             size={15}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)]"
           />
           <input
             value={search}
@@ -636,27 +673,27 @@ export default function EnergyAnalysis() {
               setSearchOpen(true);
             }}
             placeholder="Buscar por serie, servicio, RPU, zona o tipo..."
-            className="w-full rounded-2xl border bg-[#fafbfc] py-3 pl-10 pr-4 text-sm"
+            className="w-full rounded-2xl border bg-[var(--color-surface-2)] py-3 pl-10 pr-4 text-sm"
           />
 
           {searchOpen && searchResults.length > 0 && (
-            <div className="absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border bg-white p-2 shadow-2xl">
+            <div className="absolute z-30 mt-2 max-h-80 w-full overflow-y-auto rounded-2xl border bg-surface p-2 shadow-2xl">
               {searchResults.map((item) => (
                 <button
                   type="button"
                   key={item.id_medidor}
                   onClick={() => selectMeter(item)}
-                  className="flex w-full items-center justify-between rounded-xl p-3 text-left hover:bg-orange-50"
+                  className="flex w-full items-center justify-between rounded-xl p-3 text-left hover:bg-[var(--color-accent-soft)]"
                 >
                   <span>
                     <b className="block text-xs">
                       {item.numero_serie}
                     </b>
-                    <small className="text-[#9098b1]">
+                    <small className="text-[var(--color-muted)]">
                       {item.servicio_nombre} · RPU {item.rpu}
                     </small>
                   </span>
-                  <span className="text-right text-[9px] text-[#9098b1]">
+                  <span className="text-right text-[9px] text-[var(--color-muted)]">
                     {item.zona_nombre}
                     <br />
                     {item.tipo_servicio_nombre}
@@ -668,14 +705,14 @@ export default function EnergyAnalysis() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <label className="text-[10px] font-bold text-[#9098b1]">
+          <label className="text-[10px] font-bold text-[var(--color-muted)]">
             MEDIDOR
             <select
               value={meterId ?? ""}
               onChange={(event) =>
                 setMeterId(Number(event.target.value))
               }
-              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[var(--color-fg)]"
             >
               {meters.map((item) => (
                 <option
@@ -688,14 +725,14 @@ export default function EnergyAnalysis() {
             </select>
           </label>
 
-          <label className="text-[10px] font-bold text-[#9098b1]">
+          <label className="text-[10px] font-bold text-[var(--color-muted)]">
             MES
             <select
               value={month}
               onChange={(event) =>
                 setMonth(Number(event.target.value))
               }
-              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[var(--color-fg)]"
             >
               {MONTHS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -705,14 +742,14 @@ export default function EnergyAnalysis() {
             </select>
           </label>
 
-          <label className="text-[10px] font-bold text-[#9098b1]">
+          <label className="text-[10px] font-bold text-[var(--color-muted)]">
             TIPO DE DÍA
             <select
               value={dayType}
               onChange={(event) =>
                 setDayType(event.target.value as DayType)
               }
-              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[#1a1a2e]"
+              className="mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm text-[var(--color-fg)]"
             >
               {DAY_TYPES.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -727,7 +764,7 @@ export default function EnergyAnalysis() {
           <button
             type="button"
             onClick={resetFilters}
-            className="rounded-xl bg-[#f2f3f7] px-4 py-2.5 text-xs font-bold"
+            className="rounded-xl bg-[var(--color-bg)] px-4 py-2.5 text-xs font-bold"
           >
             Restablecer filtros
           </button>
@@ -785,7 +822,7 @@ export default function EnergyAnalysis() {
                 analysis.resumen.consumo_total_kwh,
               )} kWh`}
               icon={Zap}
-              color="#f97316"
+              color="var(--color-accent)"
               note="Energía real del mes"
             />
             <KpiCard
@@ -801,7 +838,7 @@ export default function EnergyAnalysis() {
                 analysis.resumen.promedio_diario_kwh,
               )} kWh`}
               icon={Gauge}
-              color="#10b981"
+              color="var(--color-success)"
               note={`${formatNumber(
                 analysis.resumen.lecturas,
                 0,
@@ -813,7 +850,7 @@ export default function EnergyAnalysis() {
                 analysis.resumen.pico_horario_kwh,
               )} kWh`}
               icon={Clock3}
-              color="#6366f1"
+              color="var(--chart-2)"
               note={
                 analysis.resumen.hora_pico === null
                   ? "Sin dato"
@@ -824,18 +861,18 @@ export default function EnergyAnalysis() {
             />
           </section>
 
-          <section className="rounded-3xl border bg-white p-5">
+          <section className="rounded-3xl border bg-surface p-5">
             <h2 className="text-sm font-bold">
               Curva temporal horaria
             </h2>
-            <p className="mb-4 text-[11px] text-[#9098b1]">
+            <p className="mb-4 text-[11px] text-[var(--color-muted)]">
               Promedio de consumo real y estimado por hora.
             </p>
             <ResponsiveContainer width="100%" height={330}>
               <LineChart data={hourlyChartData}>
                 <CartesianGrid
                   vertical={false}
-                  stroke="#f0f1f7"
+                  stroke="var(--color-border)"
                 />
                 <XAxis dataKey="hora" interval={2} />
                 <YAxis />
@@ -843,14 +880,14 @@ export default function EnergyAnalysis() {
                 <Line
                   dataKey="real"
                   name="Real"
-                  stroke="#f97316"
+                  stroke="var(--color-accent)"
                   strokeWidth={3}
                   dot={false}
                 />
                 <Line
                   dataKey="estimado"
                   name="Estimado"
-                  stroke="#6366f1"
+                  stroke="var(--chart-2)"
                   strokeDasharray="5 5"
                   dot={false}
                 />
@@ -859,7 +896,7 @@ export default function EnergyAnalysis() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
-            <div className="rounded-3xl border bg-white p-5">
+            <div className="rounded-3xl border bg-surface p-5">
               <h2 className="text-sm font-bold">
                 Comparación enero, febrero y marzo
               </h2>
@@ -878,7 +915,7 @@ export default function EnergyAnalysis() {
                       <Cell
                         key={index}
                         fill={
-                          item.active ? "#f97316" : "#a5b4fc"
+                          item.active ? "var(--color-accent)" : "var(--color-info)"
                         }
                       />
                     ))}
@@ -887,11 +924,11 @@ export default function EnergyAnalysis() {
               </ResponsiveContainer>
             </div>
 
-            <div className="rounded-3xl border bg-white p-5">
+            <div className="rounded-3xl border bg-surface p-5">
               <h2 className="text-sm font-bold">
                 Perfil horario promedio
               </h2>
-              <p className="text-[11px] text-[#9098b1]">
+              <p className="text-[11px] text-[var(--color-muted)]">
                 Comportamiento típico del medidor durante 24 horas.
               </p>
               <ResponsiveContainer width="100%" height={290}>
@@ -903,8 +940,8 @@ export default function EnergyAnalysis() {
                   <Area
                     dataKey="real"
                     name="Consumo"
-                    stroke="#6366f1"
-                    fill="#e0e7ff"
+                    stroke="var(--chart-2)"
+                    fill="var(--color-info-soft)"
                     strokeWidth={3}
                   />
                 </AreaChart>
@@ -912,18 +949,18 @@ export default function EnergyAnalysis() {
             </div>
           </section>
 
-          <section className="rounded-3xl border bg-white p-5">
+          <section className="rounded-3xl border bg-surface p-5">
             <h2 className="text-sm font-bold">
               Mapa de calor horario
             </h2>
-            <p className="mb-5 text-[11px] text-[#9098b1]">
+            <p className="mb-5 text-[11px] text-[var(--color-muted)]">
               Consumo promedio por día y hora; gris representa
               ausencia de lecturas.
             </p>
             <Heatmap data={analysis.mapa_calor} />
           </section>
 
-          <section className="rounded-3xl border bg-white p-5">
+          <section className="rounded-3xl border bg-surface p-5">
             <h2 className="text-sm font-bold">
               Resumen del análisis
             </h2>
@@ -966,3 +1003,5 @@ export default function EnergyAnalysis() {
     </div>
   );
 }
+
+

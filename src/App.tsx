@@ -1,291 +1,392 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+﻿import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import {
-  Activity,
   Bell,
-  BookOpen,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  DollarSign,
-  Home,
-  LayoutDashboard,
-  LineChart,
-  Map,
   Menu,
+  Search,
   X,
   Zap,
 } from "lucide-react";
 
-import Alerts from "./components/Alerts";
-import Dashboard from "./components/Dashboard";
-import EnergyAnalysis from "./components/EnergyAnalysis";
-import EnergyCalendar from "./components/EnergyCalendar";
-import Households from "./components/Households";
-import Meters from "./components/Meters";
-import ReadingHistory from "./components/ReadingHistory";
-import Tariffs from "./components/Tariffs";
-import Zones from "./components/Zones";
-import { summaryStats } from "./data/synthetic";
+import {
+  NAV_GROUPS,
+  NAV_ITEMS,
+  getPageFromLocation,
+  getPageLabel,
+  routeHash,
+  type Page,
+} from "./navigation";
+import { obtenerAlertas } from "./services/alertasService";
+import { useAutoRefresh } from "./hooks/useAutoRefresh";
+import { Button } from "./components/ui/Button";
+import { CommandPalette } from "./components/ui/CommandPalette";
+import { ThemeMenu } from "./components/ui/ThemeMenu";
+import { KpiSkeleton, Skeleton } from "./components/ui/Feedback";
+import { cn } from "./components/ui/cn";
 
-type Page =
-  | "dashboard"
-  | "zonas"
-  | "hogares"
-  | "medidores"
-  | "analisis-energetico"
-  | "historial-lecturas"
-  | "calendario-energetico"
-  | "alertas"
-  | "tarifas";
-
-interface NavItem {
-  key: Page;
-  label: string;
-  icon: ComponentType<{ size?: number; className?: string }>;
-  badge?: number;
-}
-
-interface SidebarProps {
-  page: Page;
-  onPageChange: (page: Page) => void;
-  collapsed: boolean;
-  onCollapsedChange: (collapsed: boolean) => void;
-}
+const Dashboard = lazy(() => import("./components/Dashboard"));
+const Zones = lazy(() => import("./components/Zones"));
+const Households = lazy(() => import("./components/Households"));
+const Meters = lazy(() => import("./components/Meters"));
+const EnergyAnalysis = lazy(() => import("./components/EnergyAnalysis"));
+const ReadingHistory = lazy(() => import("./components/ReadingHistory"));
+const EnergyCalendar = lazy(() => import("./components/EnergyCalendar"));
+const Alerts = lazy(() => import("./components/Alerts"));
+const Tariffs = lazy(() => import("./components/Tariffs"));
 
 interface NavigateDetail {
   page?: Page;
   idZona?: number;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    key: "dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    key: "zonas",
-    label: "Zonas",
-    icon: Map,
-  },
-  {
-    key: "hogares",
-    label: "Servicios",
-    icon: Home,
-  },
-  {
-    key: "medidores",
-    label: "Medidores",
-    icon: Activity,
-  },
-  {
-    key: "analisis-energetico",
-    label: "Análisis Energético",
-    icon: LineChart,
-  },
-  {
-    key: "historial-lecturas",
-    label: "Historial de Lecturas",
-    icon: BookOpen,
-  },
-  {
-    key: "calendario-energetico",
-    label: "Calendario Energético",
-    icon: CalendarDays,
-  },
-  {
-    key: "alertas",
-    label: "Alertas",
-    icon: Bell,
-    badge: summaryStats.activeAlerts,
-  },
-  {
-    key: "tarifas",
-    label: "Config. Tarifaria",
-    icon: DollarSign,
-  },
-];
-
-function NavButton({
-  item,
-  active,
-  collapsed = false,
-  onClick,
-}: {
-  item: NavItem;
+interface NavButtonProps {
+  item: (typeof NAV_ITEMS)[number];
   active: boolean;
   collapsed?: boolean;
+  badge?: number;
   onClick: () => void;
-}) {
-  const Icon = item.icon;
+}
 
+function NavButton({ item, active, collapsed = false, badge, onClick }: NavButtonProps) {
+  const Icon = item.icon;
   return (
     <button
       type="button"
       onClick={onClick}
       title={collapsed ? item.label : undefined}
-      className={`nav-item relative flex items-center gap-3 px-3 py-2.5 text-left ${
-        active ? "active text-white" : "text-[#9098b1]"
-      } ${collapsed ? "justify-center" : ""}`}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "nav-item group relative flex w-full items-center gap-3 px-3 py-2.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]",
+        active ? "active" : "text-muted",
+        collapsed && "justify-center px-0",
+      )}
     >
-      <Icon size={18} />
-
-      {!collapsed && (
+      <Icon size={18} className="shrink-0" aria-hidden="true" />
+      {!collapsed ? (
         <>
-          <span className="flex-1 text-[13px] font-medium">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">
             {item.label}
           </span>
-
-          {item.badge !== undefined && item.badge > 0 && (
+          {badge !== undefined && badge > 0 ? (
             <span
-              className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[9px] font-bold ${
+              className={cn(
+                "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums",
                 active
-                  ? "bg-white/20 text-white"
-                  : "bg-red-50 text-red-600"
-              }`}
+                  ? "bg-[var(--accent-contrast)] text-accent"
+                  : "bg-danger-soft text-danger-strong",
+              )}
             >
-              {item.badge > 99 ? "99+" : item.badge}
+              {badge > 99 ? "99+" : badge}
             </span>
-          )}
+          ) : null}
         </>
-      )}
-
-      {collapsed && item.badge !== undefined && item.badge > 0 && (
-        <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
-      )}
+      ) : null}
+      {collapsed && badge !== undefined && badge > 0 ? (
+        <span
+          className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-surface"
+          aria-hidden="true"
+        />
+      ) : null}
     </button>
+  );
+}
+
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 px-4 py-5",
+        collapsed && "justify-center px-0",
+      )}
+    >
+      <div className="gradient-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md">
+        <Zap size={18} className="text-accent-contrast" aria-hidden="true" />
+      </div>
+      {!collapsed ? (
+        <div className="min-w-0">
+          <div className="truncate text-base font-bold tracking-tight text-fg">
+            SIMET
+          </div>
+          <div className="truncate text-xs text-muted">Monitoreo energético</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SidebarNav({
+  page,
+  collapsed,
+  alertCount,
+  onPageChange,
+}: {
+  page: Page;
+  collapsed: boolean;
+  alertCount: number;
+  onPageChange: (page: Page) => void;
+}) {
+  return (
+    <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto px-3 pb-3">
+      {NAV_GROUPS.map((group) => {
+        const items = NAV_ITEMS.filter((item) => item.group === group);
+        if (items.length === 0) return null;
+        return (
+          <div key={group} className="mb-4 last:mb-0">
+            {!collapsed ? (
+              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-2">
+                {group}
+              </p>
+            ) : (
+              <div className="mx-auto mb-2 h-px w-6 bg-border" aria-hidden="true" />
+            )}
+            <div className="space-y-0.5">
+              {items.map((item) => (
+                <NavButton
+                  key={item.key}
+                  item={item}
+                  active={page === item.key}
+                  collapsed={collapsed}
+                  badge={item.key === "alertas" ? alertCount : undefined}
+                  onClick={() => onPageChange(item.key)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
+function ApiStatusCard({
+  alertCount,
+  hasError,
+  collapsed,
+}: {
+  alertCount: number;
+  hasError: boolean;
+  collapsed: boolean;
+}) {
+  if (collapsed) {
+    return (
+      <div className="flex justify-center px-3 py-3">
+        <span
+          className={cn(
+            "h-2.5 w-2.5 rounded-full",
+            hasError ? "bg-danger" : "bg-success",
+          )}
+          title={hasError ? "API con incidencias" : `API operativa · ${alertCount} alertas activas`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="m-3 rounded-xl border border-border bg-surface-2 p-3">
+      <div className="flex items-center gap-2">
+        <span className="relative flex h-2 w-2" aria-hidden="true">
+          {!hasError ? (
+            <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+          ) : null}
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              hasError ? "bg-danger" : "bg-success",
+            )}
+          />
+        </span>
+        <p className="text-xs font-semibold text-fg">
+          {hasError ? "API con incidencias" : "API operativa"}
+        </p>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+        {hasError
+          ? "Mostrando los últimos datos disponibles."
+          : `${alertCount} alerta${alertCount === 1 ? "" : "s"} activa${
+              alertCount === 1 ? "" : "s"
+            } en este momento.`}
+      </p>
+    </div>
   );
 }
 
 function Sidebar({
   page,
-  onPageChange,
   collapsed,
+  alertCount,
+  hasError,
+  onPageChange,
   onCollapsedChange,
-}: SidebarProps) {
+}: {
+  page: Page;
+  collapsed: boolean;
+  alertCount: number;
+  hasError: boolean;
+  onPageChange: (page: Page) => void;
+  onCollapsedChange: (collapsed: boolean) => void;
+}) {
   return (
     <aside
-      className={`relative flex flex-shrink-0 flex-col overflow-hidden border-r border-[#eef0f7] bg-white transition-all duration-300 ${
-        collapsed ? "w-[72px]" : "w-60"
-      }`}
+      className={cn(
+        "hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 lg:flex",
+        collapsed ? "w-[76px]" : "w-[264px]",
+      )}
     >
-      <div className="blob -right-12 -top-12 h-48 w-48 bg-[#fff4ea] opacity-60" />
-
-      <div
-        className={`flex items-center gap-3 px-4 py-6 ${
-          collapsed ? "justify-center" : ""
-        }`}
-      >
-        <div className="gradient-orange flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl shadow-lg">
-          <Zap size={18} className="text-white" />
-        </div>
-
-        {!collapsed && (
-          <div>
-            <div className="text-base font-bold text-[#1a1a2e]">
-              SIMET
-            </div>
-            <div className="text-[10px] text-[#9098b1]">
-              Monitoreo Energético
-            </div>
-          </div>
-        )}
+      <Brand collapsed={collapsed} />
+      <SidebarNav
+        page={page}
+        collapsed={collapsed}
+        alertCount={alertCount}
+        onPageChange={onPageChange}
+      />
+      <ApiStatusCard
+        alertCount={alertCount}
+        hasError={hasError}
+        collapsed={collapsed}
+      />
+      <div className="border-t border-border p-3">
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(!collapsed)}
+          aria-label={collapsed ? "Expandir menú lateral" : "Colapsar menú lateral"}
+          aria-pressed={collapsed}
+          className={cn(
+            "flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]",
+            collapsed && "px-0",
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight aria-hidden="true" size={16} />
+          ) : (
+            <>
+              <ChevronLeft aria-hidden="true" size={16} />
+              Colapsar
+            </>
+          )}
+        </button>
       </div>
-
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
-        {NAV_ITEMS.map((item) => (
-          <NavButton
-            key={item.key}
-            item={item}
-            active={page === item.key}
-            collapsed={collapsed}
-            onClick={() => onPageChange(item.key)}
-          />
-        ))}
-      </nav>
-
-      <button
-        type="button"
-        onClick={() => onCollapsedChange(!collapsed)}
-        className="m-3 flex items-center justify-center rounded-xl p-2 text-xs text-[#9098b1] transition hover:bg-[#f6f7fa]"
-      >
-        {collapsed ? (
-          <ChevronRight size={14} />
-        ) : (
-          <>
-            <ChevronLeft size={14} />
-            <span className="ml-1">Colapsar</span>
-          </>
-        )}
-      </button>
     </aside>
   );
 }
 
 function MobileSidebar({
-  page,
   open,
   onClose,
+  page,
+  alertCount,
+  hasError,
   onPageChange,
 }: {
-  page: Page;
   open: boolean;
   onClose: () => void;
+  page: Page;
+  alertCount: number;
+  hasError: boolean;
   onPageChange: (page: Page) => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const timer = window.setTimeout(() => {
+      panelRef.current
+        ?.querySelector<HTMLButtonElement>("button")
+        ?.focus();
+    }, 30);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(timer);
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
   return (
-    <>
-      {open && (
-        <button
-          type="button"
-          aria-label="Cerrar menú"
-          className="fixed inset-0 z-40 bg-[#1a1a2e]/30 backdrop-blur-sm lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <button
+        type="button"
+        aria-label="Cerrar menú"
+        className="absolute inset-0 bg-overlay backdrop-blur-[2px]"
+        onClick={onClose}
+      />
       <div
-        className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 lg:hidden ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menú de navegación"
+        className="absolute inset-y-0 left-0 flex w-[min(86vw,300px)] flex-col border-r border-border bg-surface shadow-2xl"
       >
-        <div className="flex h-full w-64 flex-col bg-white shadow-2xl">
-          <div className="flex items-center justify-between border-b px-4 py-5">
-            <div className="flex items-center gap-3">
-              <div className="gradient-orange flex h-9 w-9 items-center justify-center rounded-xl">
-                <Zap size={17} className="text-white" />
-              </div>
-              <div>
-                <b className="block text-[#1a1a2e]">SIMET</b>
-                <span className="text-[9px] text-[#9098b1]">
-                  Monitoreo Energético
-                </span>
-              </div>
-            </div>
+        <div className="flex items-center justify-between border-b border-border pr-3">
+          <Brand />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Cerrar menú"
+          >
+            <X aria-hidden="true" size={18} />
+          </Button>
+        </div>
+        <SidebarNav
+          page={page}
+          collapsed={false}
+          alertCount={alertCount}
+          onPageChange={(nextPage) => {
+            onPageChange(nextPage);
+            onClose();
+          }}
+        />
+        <ApiStatusCard
+          alertCount={alertCount}
+          hasError={hasError}
+          collapsed={false}
+        />
+      </div>
+    </div>
+  );
+}
 
-            <button
-              type="button"
-              aria-label="Cerrar menú"
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f3f7]"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
-            {NAV_ITEMS.map((item) => (
-              <NavButton
-                key={item.key}
-                item={item}
-                active={page === item.key}
-                onClick={() => onPageChange(item.key)}
-              />
-            ))}
-          </nav>
+function PageSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Cargando página">
+      <div className="space-y-3">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="h-9 w-72 max-w-full" />
+        <Skeleton className="h-4 w-[32rem] max-w-full" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <KpiSkeleton key={index} />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="card p-5 lg:col-span-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="mt-5 h-72 w-full" />
+        </div>
+        <div className="card p-5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-5 h-72 w-full" />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -300,7 +401,7 @@ function PageContent({
     case "dashboard":
       return <Dashboard />;
     case "zonas":
-      return <Zones initialZonaId={selectedZonaId} />;
+      return <Zones initialZonaId={selectedZonaId ?? undefined} />;
     case "hogares":
       return <Households />;
     case "medidores":
@@ -321,44 +422,110 @@ function PageContent({
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>("dashboard");
-  const [collapsed, setCollapsed] = useState(false);
+  const [page, setPage] = useState<Page>(() => getPageFromLocation(window.location));
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("simet-sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [selectedZonaId, setSelectedZonaId] =
-    useState<number | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [selectedZonaId, setSelectedZonaId] = useState<number | null>(null);
+  const [alertCount, setAlertCount] = useState(0);
+  const [alertsError, setAlertsError] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
 
+  const changePage = useCallback((newPage: Page) => {
+    setPage(newPage);
+    setMobileOpen(false);
+
+    const nextHash = routeHash(newPage);
+    if (window.location.hash !== nextHash) {
+      // Se conserva la ruta actual para que funcione también en subdirectorios.
+      window.history.pushState(null, "", nextHash);
+    }
+  }, []);
+
+  // Mantiene la URL y la pestaña activa sincronizadas, incluso al recargar
+  // con F5 o al usar los botones Atrás/Adelante del navegador.
   useEffect(() => {
-    const navigate = (event: Event): void => {
-      const customEvent = event as CustomEvent<NavigateDetail>;
-      const detail = customEvent.detail;
+    const currentPage = getPageFromLocation(window.location);
+    const currentHash = routeHash(currentPage);
+    if (window.location.hash !== currentHash) {
+      window.history.replaceState(null, "", currentHash);
+    }
 
-      if (!detail?.page) {
-        return;
-      }
-
-      if (
-        detail.page === "zonas" &&
-        detail.idZona !== undefined
-      ) {
-        setSelectedZonaId(detail.idZona);
-      }
-
-      setPage(detail.page);
+    const syncFromUrl = () => {
+      setPage(getPageFromLocation(window.location));
       setMobileOpen(false);
     };
 
-    window.addEventListener("simet:navigate", navigate);
-
+    window.addEventListener("popstate", syncFromUrl);
+    window.addEventListener("hashchange", syncFromUrl);
     return () => {
-      window.removeEventListener("simet:navigate", navigate);
+      window.removeEventListener("popstate", syncFromUrl);
+      window.removeEventListener("hashchange", syncFromUrl);
     };
   }, []);
 
-  const currentPageLabel = useMemo(
-    () =>
-      NAV_ITEMS.find((item) => item.key === page)?.label ?? "SIMET",
-    [page],
-  );
+  const loadAlertCount = useCallback(async () => {
+    try {
+      const alerts = await obtenerAlertas({ estado: "Activa" });
+      setAlertCount(alerts.length);
+      setAlertsError(false);
+      return alerts.length;
+    } catch (error) {
+      setAlertsError(true);
+      throw error;
+    }
+  }, []);
+
+  const alertRefresh = useAutoRefresh(loadAlertCount, { intervalMs: 60_000 });
+
+  useEffect(() => {
+    let active = true;
+    loadAlertCount()
+      .then(() => {
+        if (active) alertRefresh.markUpdated();
+      })
+      .catch(() => {
+        /* el estado de error ya se muestra en la barra lateral */
+      });
+    return () => {
+      active = false;
+    };
+  }, [alertRefresh.markUpdated, loadAlertCount]);
+
+  useEffect(() => {
+    const navigate = (event: Event) => {
+      const detail = (event as CustomEvent<NavigateDetail>).detail;
+      if (!detail?.page) return;
+      if (detail.page === "zonas" && detail.idZona !== undefined) {
+        setSelectedZonaId(detail.idZona);
+      }
+      changePage(detail.page);
+    };
+    window.addEventListener("simet:navigate", navigate);
+    return () => window.removeEventListener("simet:navigate", navigate);
+  }, [changePage]);
+
+  useEffect(() => {
+    document.title = `${getPageLabel(page)} · SIMET`;
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [page]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((current) => !current);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const currentDate = useMemo(
     () =>
@@ -371,57 +538,123 @@ export default function App() {
     [],
   );
 
-  const changePage = (newPage: Page) => {
-    setPage(newPage);
-    setMobileOpen(false);
-  };
+  const currentGroup = useMemo(
+    () => NAV_ITEMS.find((item) => item.key === page)?.group ?? "",
+    [page],
+  );
+
+  const changeCollapsed = useCallback((next: boolean) => {
+    setCollapsed(next);
+    try {
+      localStorage.setItem("simet-sidebar-collapsed", String(next));
+    } catch {
+      /* almacenamiento no disponible */
+    }
+  }, []);
 
   return (
-    <div className="flex h-full overflow-hidden bg-[#f2f3f7]">
+    <div className="flex h-dvh max-h-dvh overflow-hidden bg-bg">
+      <a href="#main-content" className="skip-link">
+        Saltar al contenido principal
+      </a>
+
       <MobileSidebar
-        page={page}
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
+        page={page}
+        alertCount={alertCount}
+        hasError={alertsError}
         onPageChange={changePage}
       />
 
-      <div className="hidden lg:flex">
-        <Sidebar
-          page={page}
-          onPageChange={changePage}
-          collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
-        />
-      </div>
+      <Sidebar
+        page={page}
+        collapsed={collapsed}
+        alertCount={alertCount}
+        hasError={alertsError}
+        onPageChange={changePage}
+        onCollapsedChange={changeCollapsed}
+      />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center gap-4 border-b border-[#eef0f7] bg-white px-4 py-4 sm:px-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface/90 px-3 backdrop-blur sm:gap-3 sm:px-5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menú de navegación"
+          >
+            <Menu aria-hidden="true" size={19} />
+          </Button>
+
+          <div className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
+            <span className="text-muted">{currentGroup}</span>
+            <ChevronRight aria-hidden="true" size={14} className="text-muted-2" />
+            <span className="truncate font-semibold text-fg">
+              {getPageLabel(page)}
+            </span>
+          </div>
+
           <button
             type="button"
-            aria-label="Abrir menú"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f2f3f7] lg:hidden"
-            onClick={() => setMobileOpen(true)}
+            onClick={() => setPaletteOpen(true)}
+            className="ml-auto flex h-9 min-w-0 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 text-left text-sm text-muted transition-colors hover:border-border-strong hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] sm:min-w-[240px] lg:min-w-[300px]"
+            aria-label="Buscar o navegar (Ctrl o Cmd + K)"
           >
-            <Menu size={18} />
+            <Search aria-hidden="true" size={16} className="shrink-0" />
+            <span className="hidden flex-1 truncate sm:inline">
+              Buscar o ir a…
+            </span>
+            <kbd className="hidden rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold text-muted-2 sm:inline">
+              Ctrl K
+            </kbd>
           </button>
 
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-sm font-semibold text-[#1a1a2e]">
-              {currentPageLabel}
-            </h2>
-            <p className="truncate text-[10px] capitalize text-[#9098b1]">
-              SIMET · Toluca Smart City · {currentDate}
-            </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => changePage("alertas")}
+              className="relative gap-1.5"
+              aria-label={`Abrir alertas: ${alertCount} activas`}
+            >
+              <Bell aria-hidden="true" size={16} />
+              <span className="hidden text-xs font-semibold sm:inline">
+                {alertCount}
+              </span>
+              {alertCount > 0 ? (
+                <span
+                  className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </Button>
+            <ThemeMenu compact />
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <PageContent
-            page={page}
-            selectedZonaId={selectedZonaId}
-          />
+        <main ref={mainRef} id="main-content" className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
+            <Suspense fallback={<PageSkeleton />}>
+              <PageContent page={page} selectedZonaId={selectedZonaId} />
+            </Suspense>
+            <footer className="mt-10 flex flex-col gap-1 border-t border-border pt-4 text-[11px] text-muted-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>SIMET · Toluca Smart City · {currentDate}</p>
+              <p>Datos del sistema · actualización automática</p>
+            </footer>
+          </div>
         </main>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={changePage}
+        currentPage={page}
+        alertCount={alertCount}
+      />
     </div>
   );
 }
+
