@@ -102,7 +102,8 @@ function typeImage(typeName: string, category: string): string {
   if (text.includes("planta") || text.includes("industrial")) return "/img/servicios/servicio_3.jpg";
   if (text.includes("pozo")) return "/img/Pozo.png";
   if (text.includes("unifamiliar")) return "/img/ViviendaUnifamiliar.png";
-  if (text.includes("residencial") || text.includes("vivienda")) return "/img/servicios/servicio_5.jpg";
+  if (text.includes("residencial") || text.includes("vivienda")) return "/img/ViviendaAlto.png";
+  if (text.includes("servicio")) return "/img/servicios/servicio_6.jpg";
   return "/img/EdificioGubernamental.png";
 }
 
