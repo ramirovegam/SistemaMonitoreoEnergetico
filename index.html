@@ -1,10 +1,43 @@
 <!doctype html>
 <html lang="es">
   <head>
-    <link rel="icon" type="image/svg+xml" href="public/data/favicon.svg" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SIMET - Monitoreo Energético</title>
+    <meta
+      name="description"
+      content="SIMET — Sistema de Monitoreo Energético de Toluca. Consumo, medidores, zonas, alertas y análisis en tiempo real."
+    />
+    <link rel="icon" type="image/svg+xml" href="/data/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)" />
+    <title>SIMET — Monitoreo Energético</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('simet-theme') || 'auto';
+          var accent = localStorage.getItem('simet-accent') || 'orange';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          root.dataset.theme = dark ? 'dark' : 'light';
+          root.dataset.mode = mode;
+          root.dataset.accent = accent;
+          root.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (error) {
+          document.documentElement.dataset.theme = 'light';
+          document.documentElement.dataset.mode = 'auto';
+          document.documentElement.dataset.accent = 'orange';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

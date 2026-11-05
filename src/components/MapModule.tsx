@@ -1,7 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AttributionControl,
+  GeoJSON,
+  MapContainer,
+  TileLayer,
+  ZoomControl,
+  useMap,
+} from "react-leaflet";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
-import { geoJSON as createLeafletGeoJSON } from "leaflet";
+import {
+  Control,
+  DomEvent,
+  DomUtil,
+  geoJSON as createLeafletGeoJSON,
+} from "leaflet";
 import type {
   GeoJSON as LeafletGeoJSON,
   Layer,
@@ -23,17 +35,27 @@ interface PropiedadesZona {
 type ZonaFeature = Feature<Geometry, PropiedadesZona>;
 type ZonasGeoJSON = FeatureCollection<Geometry, PropiedadesZona>;
 
-const CENTER: [number, number] = [19.2926, -99.6562];
+const TOLUCA_CENTER: [number, number] = [19.2925, -99.6569];
+const TOLUCA_ZOOM = 12;
+const TOLUCA_MIN_ZOOM = 10;
+const TOLUCA_MAX_ZOOM = 18;
+
+// Límite estricto de la zona metropolitana de Toluca. El suroeste y noreste
+// cubren los municipios conurbados sin permitir que el mapa se aleje de la región.
+const TOLUCA_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [19.05, -99.93],
+  [19.56, -99.38],
+];
 
 const COLORS = [
-  "#ff8a1f",
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#06b6d4",
-  "#ec4899",
-  "#8b5cf6",
-  "#14b8a6",
+  "var(--color-accent)",
+  "var(--chart-2)",
+  "var(--color-success)",
+  "var(--color-warning)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
 ];
 
 const ZONAS_ESPERADAS = [
@@ -151,6 +173,56 @@ function EnfocarZona({ zona }: { zona: ZonaFeature | null }) {
       });
     }
   }, [zona, map]);
+
+  return null;
+}
+
+function BotonRecentrarMapa() {
+  const map = useMap();
+
+  useEffect(() => {
+    const control = new Control({ position: "bottomright" });
+
+    control.onAdd = () => {
+      const container = DomUtil.create("div", "leaflet-control-recenter");
+      const button = DomUtil.create(
+        "button",
+        "leaflet-control-recenter__button",
+        container,
+      ) as HTMLButtonElement;
+
+      button.type = "button";
+      button.title = "Centrar en Toluca";
+      button.setAttribute("aria-label", "Centrar mapa en Toluca");
+      button.innerHTML = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+        </svg>
+      `;
+
+      DomEvent.disableClickPropagation(container);
+      DomEvent.disableScrollPropagation(container);
+      DomEvent.on(button, "click", (event) => {
+        DomEvent.stop(event);
+        const reduceMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        map.stop();
+        map.setView(TOLUCA_CENTER, TOLUCA_ZOOM, { animate: !reduceMotion });
+      });
+
+      return container;
+    };
+
+    control.addTo(map);
+
+    return () => {
+      control.remove();
+    };
+  }, [map]);
 
   return null;
 }
@@ -298,13 +370,13 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
 
       layer.bindTooltip(
         `<div style="min-width:190px;padding:4px">
-          <div style="font-size:13px;font-weight:700;color:#1a1a2e">
+          <div style="font-size:13px;font-weight:700;color:var(--color-fg)">
             ${props.NOMBRE_DEL}
           </div>
           <div style="margin-top:4px;font-size:11px;font-weight:600;color:${color}">
             Zona ${props.Delegacion}
           </div>
-          <div style="margin-top:5px;font-size:10px;color:#9098b1">
+          <div style="margin-top:5px;font-size:10px;color:var(--color-muted)">
             ${precision}
           </div>
         </div>`,
@@ -337,10 +409,10 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-[#1a1a2e]">
+          <h2 className="text-lg font-bold text-[var(--color-fg)]">
             🗺️ Mapa territorial de Toluca
           </h2>
-          <p className="text-[11px] text-[#9098b1]">
+          <p className="text-[11px] text-[var(--color-muted)]">
             {geojson?.features.length ?? 0} de {ZONAS_ESPERADAS.length} zonas cargadas
           </p>
         </div>
@@ -349,7 +421,7 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
           type="button"
           onClick={() => void cargarGeoJSON()}
           disabled={cargando}
-          className="flex items-center gap-1.5 rounded-full bg-[#f2f3f7] px-3 py-1.5 text-xs font-semibold text-[#606881] disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-10 items-center gap-1.5 rounded-full bg-[var(--color-bg)] px-3.5 text-xs font-semibold text-[var(--color-fg-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw size={12} className={cargando ? "animate-spin" : ""} />
           {cargando ? "Cargando..." : "Actualizar mapa"}
@@ -357,7 +429,7 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-[#fef2f2] p-4 text-xs text-[#b91c1c]">
+        <div className="rounded-2xl bg-[var(--color-danger-soft)] p-4 text-xs text-[var(--color-danger-strong)]">
           <p className="font-bold">No se pudo cargar el mapa</p>
           <p className="mt-1">{error}</p>
           <p className="mt-2">
@@ -367,7 +439,7 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
       )}
 
       {!error && zonasFaltantes.length > 0 && (
-        <div className="flex gap-3 rounded-2xl bg-[#fffbeb] p-4 text-xs text-[#92400e]">
+        <div className="flex gap-3 rounded-2xl bg-[var(--color-warning-soft)] p-4 text-xs text-[var(--color-warning-strong)]">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <div>
             <p className="font-bold">
@@ -378,26 +450,28 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
         </div>
       )}
 
-      <div className="flex min-h-[600px] flex-col gap-4 xl:flex-row">
-        <div className="card relative h-[600px] min-w-0 flex-1 overflow-hidden">
+      <div className="flex flex-col gap-4 xl:h-[clamp(560px,calc(100dvh-7rem),900px)] xl:flex-row">
+        <div className="card map-shell relative h-[420px] min-h-0 min-w-0 flex-1 overflow-hidden sm:h-[500px] xl:h-full">
           <div className="absolute left-3 top-3 z-[1000]">
             <div className="relative">
               <Search
                 size={13}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9098b1]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]"
               />
               <input
+                type="search"
+                aria-label="Buscar zona"
                 value={busqueda}
                 onChange={(event) => setBusqueda(event.target.value)}
                 placeholder="Buscar zona..."
-                className="w-64 rounded-full border border-[#e5e7ef] bg-white py-2.5 pl-8 pr-9 text-xs font-medium text-[#1a1a2e] shadow-md outline-none focus:border-[#ff8a1f]"
+                className="w-[min(16rem,calc(100vw-6rem))] rounded-full border border-[var(--color-border)] bg-surface py-2.5 pl-8 pr-9 text-xs font-medium text-[var(--color-fg)] shadow-md outline-none focus:border-[var(--color-accent)]"
               />
               {busqueda && (
                 <button
                   type="button"
                   onClick={() => setBusqueda("")}
                   aria-label="Limpiar búsqueda"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9098b1] hover:text-[#1a1a2e]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-fg)]"
                 >
                   <X size={13} />
                 </button>
@@ -405,20 +479,26 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
             </div>
           </div>
 
-          <div className="absolute bottom-4 left-4 z-[1000] rounded-2xl border border-[#f0f1f7] bg-white/95 p-3 shadow-lg backdrop-blur-sm">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#9098b1]">
+          <div className="absolute bottom-4 left-4 z-[1000] rounded-2xl border border-[var(--color-border)] bg-surface/95 p-3 shadow-lg backdrop-blur-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted)]">
               Vista actual
             </p>
-            <p className="mt-1 text-lg font-bold text-[#1a1a2e]">
+            <p className="mt-1 text-lg font-bold text-[var(--color-fg)]">
               {zonasVisibles?.features.length ?? 0}
             </p>
-            <p className="text-[10px] text-[#9098b1]">polígonos visibles</p>
+            <p className="text-[10px] text-[var(--color-muted)]">polígonos visibles</p>
           </div>
 
           <MapContainer
-            center={CENTER}
-            zoom={11}
-            zoomControl
+            center={TOLUCA_CENTER}
+            zoom={TOLUCA_ZOOM}
+            minZoom={TOLUCA_MIN_ZOOM}
+            maxZoom={TOLUCA_MAX_ZOOM}
+            maxBounds={TOLUCA_MAX_BOUNDS}
+            maxBoundsViscosity={1}
+            zoomControl={false}
+            attributionControl={false}
+            zoomAnimation={false}
             style={{ height: "100%", width: "100%" }}
             className="z-0"
           >
@@ -429,6 +509,12 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
 
             <AjustarMapa geojson={zonasVisibles} />
             <EnfocarZona zona={seleccionada} />
+
+            {/* Se renderizan en orden inverso porque Leaflet apila los controles
+                de abajo hacia arriba: recentrar arriba, zoom en medio y atribución abajo. */}
+            <AttributionControl position="bottomright" prefix={false} />
+            <ZoomControl position="bottomright" />
+            <BotonRecentrarMapa />
 
             {zonasVisibles && zonasVisibles.features.length > 0 && (
               <GeoJSON
@@ -444,23 +530,23 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
           </MapContainer>
         </div>
 
-        <aside className="flex w-full flex-col gap-3 xl:w-72">
+        <aside className="flex w-full min-h-0 flex-col gap-3 xl:h-full xl:w-72">
           {zonaSeleccionada ? (
             <div
-              className="card p-4"
+              className="card shrink-0 p-4"
               style={{
                 border: `2px solid ${colorPorZona(zonaSeleccionada.fid)}`,
               }}
             >
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-bold text-[#1a1a2e]">
+                <p className="text-xs font-bold text-[var(--color-fg)]">
                   Zona seleccionada
                 </p>
                 <button
                   type="button"
                   onClick={() => setSeleccionada(null)}
                   aria-label="Cerrar zona seleccionada"
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f2f3f7]"
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-bg)]"
                 >
                   <X size={11} />
                 </button>
@@ -478,7 +564,7 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
                 >
                   {zonaSeleccionada.NOMBRE_DEL}
                 </p>
-                <p className="mt-1 text-[10px] text-[#9098b1]">
+                <p className="mt-1 text-[10px] text-[var(--color-muted)]">
                   {zonaSeleccionada.verificado
                     ? "Polígono territorial verificado"
                     : "Área geográfica aproximada"}
@@ -486,42 +572,42 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
               </div>
 
               <div className="mt-3 flex justify-between border-b py-2 text-xs">
-                <span className="text-[#9098b1]">FID</span>
+                <span className="text-[var(--color-muted)]">FID</span>
                 <strong>{zonaSeleccionada.fid}</strong>
               </div>
               <div className="flex justify-between border-b py-2 text-xs">
-                <span className="text-[#9098b1]">Zona</span>
+                <span className="text-[var(--color-muted)]">Zona</span>
                 <strong>{zonaSeleccionada.Delegacion}</strong>
               </div>
               <div className="flex justify-between border-b py-2 text-xs">
-                <span className="text-[#9098b1]">Precisión</span>
+                <span className="text-[var(--color-muted)]">Precisión</span>
                 <strong>{zonaSeleccionada.precision ?? "Sin especificar"}</strong>
               </div>
               <div className="flex items-start justify-between gap-3 py-2 text-xs">
-                <span className="shrink-0 text-[#9098b1]">Fuente</span>
+                <span className="shrink-0 text-[var(--color-muted)]">Fuente</span>
                 <strong className="text-right">
                   {zonaSeleccionada.fuente ?? "GeoJSON Toluca"}
                 </strong>
               </div>
             </div>
           ) : (
-            <div className="card p-5 text-center">
-              <MapPin size={28} className="mx-auto text-[#ff8a1f]" />
-              <p className="mt-2 text-xs font-semibold text-[#1a1a2e]">
+            <div className="card shrink-0 p-5 text-center">
+              <MapPin size={28} className="mx-auto text-[var(--color-accent)]" />
+              <p className="mt-2 text-xs font-semibold text-[var(--color-fg)]">
                 Selecciona una zona
               </p>
-              <p className="mt-1 text-[10px] text-[#9098b1]">
+              <p className="mt-1 text-[10px] text-[var(--color-muted)]">
                 Haz clic sobre un polígono para consultar sus datos.
               </p>
             </div>
           )}
 
-          <div className="card p-4">
-            <p className="mb-3 text-xs font-bold text-[#1a1a2e]">
+          <div className="card flex min-h-0 flex-col p-4 xl:flex-1">
+            <p className="mb-3 shrink-0 text-xs font-bold text-[var(--color-fg)]">
               Zonas ({zonasVisibles?.features.length ?? 0})
             </p>
 
-            <div className="flex max-h-[470px] flex-col gap-1 overflow-y-auto pr-1">
+            <div className="flex max-h-[320px] min-h-0 flex-col gap-1 overflow-y-auto pr-1 xl:max-h-none xl:flex-1">
               {zonasVisibles?.features.map((feature) => {
                 const props = feature.properties;
                 const activa = props.fid === zonaSeleccionada?.fid;
@@ -534,18 +620,18 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
                       setSeleccionada(feature);
                       onZonaSeleccionada?.(props.NOMBRE_DEL);
                     }}
-                    className={`flex items-center gap-2 rounded-xl p-2 text-left transition-colors ${
-                      activa ? "bg-[#fff4ea]" : "hover:bg-[#f8f9fc]"
+                    className={`flex min-h-10 items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors ${
+                      activa ? "bg-[var(--color-accent-soft)]" : "hover:bg-[var(--color-surface-2)]"
                     }`}
                   >
                     <span
                       className="h-3 w-3 shrink-0 rounded-sm"
                       style={{ background: colorPorZona(props.fid) }}
                     />
-                    <span className="min-w-0 flex-1 truncate text-[10px] font-semibold text-[#1a1a2e]">
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[var(--color-fg)]">
                       {props.NOMBRE_DEL}
                     </span>
-                    <span className="text-[9px] text-[#9098b1]">
+                    <span className="shrink-0 text-[10px] text-[var(--color-muted)]">
                       {props.Delegacion}
                     </span>
                   </button>
@@ -553,7 +639,7 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
               })}
 
               {!cargando && zonasVisibles?.features.length === 0 && (
-                <p className="py-6 text-center text-[10px] text-[#9098b1]">
+                <p className="py-6 text-center text-[10px] text-[var(--color-muted)]">
                   No se encontraron zonas con esa búsqueda.
                 </p>
               )}
@@ -564,3 +650,5 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
     </div>
   );
 }
+
+

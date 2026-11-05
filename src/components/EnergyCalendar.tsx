@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   type DetalleDia,
   type DiaCalendario,
 } from "../services/calendarioEnergeticoService";
+import { PageHeader } from "./ui/PageHeader";
 
 const MONTHS = [
   { value: 1, label: "Enero" },
@@ -71,15 +72,15 @@ function fullDate(value: string): string {
 
 function getDayBackground(day: DiaCalendario): string {
   if (day.es_festivo && day.es_vacacional) {
-    return "border-orange-200 bg-gradient-to-br from-orange-50 to-cyan-50";
+    return "border-[var(--color-accent-soft-2)] bg-gradient-to-br from-[var(--color-accent-soft)] to-[var(--color-info-soft)]";
   }
-  if (day.es_festivo) return "border-orange-200 bg-orange-50";
-  if (day.es_vacacional) return "border-cyan-200 bg-cyan-50";
+  if (day.es_festivo) return "border-[var(--color-accent-soft-2)] bg-[var(--color-accent-soft)]";
+  if (day.es_vacacional) return "border-[var(--color-info-soft)] bg-[var(--color-info-soft)]";
 
   const weekDay = parseLocalDate(day.fecha).getDay();
-  if (weekDay === 0) return "border-violet-100 bg-violet-50/55";
-  if (weekDay === 6) return "border-blue-100 bg-blue-50/55";
-  return "border-[#eceef4] bg-white";
+  if (weekDay === 0) return "border-[var(--color-accent-soft-2)] bg-[var(--color-accent-soft)]";
+  if (weekDay === 6) return "border-[var(--color-info-soft)] bg-[var(--color-info-soft)]";
+  return "border-[var(--color-border)] bg-surface";
 }
 
 interface MetricCardProps {
@@ -98,15 +99,15 @@ function MetricCard({
   background,
 }: MetricCardProps) {
   return (
-    <article className="rounded-2xl border bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border bg-surface p-4 shadow-sm">
       <div
         className="flex h-9 w-9 items-center justify-center rounded-xl"
         style={{ background }}
       >
         <Icon size={17} style={{ color }} />
       </div>
-      <p className="mt-3 text-[10px] text-[#9098b1]">{label}</p>
-      <p className="text-lg font-bold text-[#1a1a2e]">{value}</p>
+      <p className="mt-3 text-[11px] text-[var(--color-muted)]">{label}</p>
+      <p className="text-lg font-bold text-[var(--color-fg)]">{value}</p>
     </article>
   );
 }
@@ -124,45 +125,53 @@ function DayCell({ day, selected, onSelect }: DayCellProps) {
     <button
       type="button"
       onClick={() => onSelect(day)}
-      className={`min-h-[94px] rounded-2xl border p-2.5 text-left transition hover:-translate-y-0.5 hover:shadow-lg ${getDayBackground(
+      aria-label={`${fullDate(day.fecha)}. Mínima ${formatNumber(day.temp_min_c)} grados, máxima ${formatNumber(day.temp_max_c)} grados.`}
+      className={`group flex min-h-[72px] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border p-1.5 text-left transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-[96px] sm:gap-1.5 sm:rounded-2xl sm:p-2.5 ${getDayBackground(
         day,
-      )} ${selected ? "ring-2 ring-orange-400" : ""}`}
+      )} ${selected ? "ring-2 ring-[var(--color-accent)]" : ""}`}
     >
-      <div className="flex items-start justify-between gap-1">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-xs font-extrabold text-[#30364a]">
+      <div className="flex min-w-0 items-start justify-between gap-0.5">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface/80 text-[11px] font-extrabold text-[var(--color-fg-secondary)] sm:h-6 sm:w-6">
           {date.getDate()}
         </span>
-        <div className="flex items-center gap-1">
+        <span className="flex shrink-0 flex-col items-end gap-0.5 sm:flex-row sm:items-center">
           {day.es_festivo && (
-            <span title="Día festivo" className="rounded-lg bg-orange-100 p-1 text-orange-600">
-              <CakeSlice size={13} />
+            <span
+              title="Día festivo"
+              className="rounded bg-[var(--color-accent-soft-2)] p-0.5 text-[var(--color-accent-strong)]"
+            >
+              <CakeSlice size={9} />
             </span>
           )}
           {day.es_vacacional && (
-            <span title="Día vacacional" className="rounded-lg bg-cyan-100 p-1 text-cyan-700">
-              <Palmtree size={13} />
+            <span
+              title="Día vacacional"
+              className="rounded bg-[var(--color-info-soft)] p-0.5 text-[var(--color-info-strong)]"
+            >
+              <Palmtree size={9} />
             </span>
           )}
-        </div>
+        </span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between text-[10px]">
-        <span className="font-semibold text-blue-600">
+      <div className="flex flex-col items-start gap-0 text-[10px] leading-tight sm:flex-row sm:items-center sm:justify-between sm:text-[11px] sm:leading-none">
+        <span
+          title="Temperatura mínima"
+          className="font-semibold text-[var(--color-info-strong)]"
+        >
           {formatNumber(day.temp_min_c)}°
         </span>
-        <span className="font-semibold text-orange-600">
+        <span
+          title="Temperatura máxima"
+          className="font-semibold text-[var(--color-accent-strong)]"
+        >
           {formatNumber(day.temp_max_c)}°
         </span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between">
-        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[8px] font-bold text-[#606881]">
-          Tipo {day.tipo_dia}
-        </span>
-        <span className="text-[8px] font-semibold text-[#9098b1]">
-          F {day.factor_estacional.toFixed(3)}
-        </span>
-      </div>
+      <span className="mt-auto hidden w-fit max-w-full truncate rounded-full bg-surface/85 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[var(--color-fg-secondary)] sm:block">
+        Tipo {day.tipo_dia}
+      </span>
     </button>
   );
 }
@@ -194,24 +203,24 @@ function MonthCalendar({
   );
 
   return (
-    <section className="rounded-3xl border bg-white p-4 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
+    <section className="rounded-3xl border bg-surface p-3 shadow-sm sm:p-4">
+      <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-extrabold capitalize text-[#1a1a2e]">
+          <h2 className="text-lg font-extrabold capitalize text-[var(--color-fg)]">
             {MONTHS.find((item) => item.value === month)?.label} {year}
           </h2>
-          <p className="text-[10px] text-[#9098b1]">
+          <p className="text-[11px] text-[var(--color-muted)]">
             {days.length} días registrados
           </p>
         </div>
-        <CalendarDays size={19} className="text-orange-500" />
+        <CalendarDays size={19} className="text-[var(--color-accent)]" />
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {WEEK_DAYS.map((day, index) => (
           <div
             key={`${day}-${index}`}
-            className="py-1 text-center text-[9px] font-bold text-[#9098b1]"
+            className="py-1 text-center text-[11px] font-bold text-[var(--color-muted)]"
           >
             {day}
           </div>
@@ -227,7 +236,7 @@ function MonthCalendar({
             return (
               <div
                 key={`missing-${dayNumber}`}
-                className="min-h-[94px] rounded-2xl bg-[#f6f7fa] p-2 text-[10px] text-[#b4b9c8]"
+                className="min-h-[72px] rounded-lg bg-[var(--color-surface-2)] p-1.5 text-[11px] text-[var(--color-muted-2)] sm:min-h-[96px] sm:rounded-2xl sm:p-2"
               >
                 {dayNumber}
               </div>
@@ -257,34 +266,34 @@ interface DetailPanelProps {
 function DetailPanel({ detail, loading, onClose }: DetailPanelProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-[#171827]/35 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-end bg-overlay backdrop-blur-sm"
       onMouseDown={onClose}
     >
       <aside
-        className="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
+        className="h-full w-full max-w-xl overflow-y-auto bg-surface shadow-2xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-white p-6">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-surface p-6">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-orange-500">
+            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-[var(--color-accent)]">
               Detalle energético del día
             </p>
-            <h2 className="mt-1 text-lg font-bold capitalize text-[#1a1a2e]">
+            <h2 className="mt-1 text-lg font-bold capitalize text-[var(--color-fg)]">
               {detail ? fullDate(detail.fecha) : "Consultando fecha..."}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f2f3f7]"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-bg)]"
           >
             <X size={15} />
           </button>
         </header>
 
         {loading || !detail ? (
-          <div className="flex items-center justify-center gap-3 p-14 text-sm text-[#9098b1]">
-            <RefreshCw size={18} className="animate-spin text-orange-500" />
+          <div className="flex items-center justify-center gap-3 p-14 text-sm text-[var(--color-muted)]">
+            <RefreshCw size={18} className="animate-spin text-[var(--color-accent)]" />
             Cargando datos del día...
           </div>
         ) : (
@@ -321,7 +330,7 @@ function DetailPanel({ detail, loading, onClose }: DetailPanelProps) {
               <DetailCard label="Alertas generadas" value={detail.alertas.toLocaleString("es-MX")} icon={Bell} />
             </DetailSection>
 
-            <div className="rounded-2xl bg-[#f8f9fc] p-4 text-xs text-[#747b91]">
+            <div className="rounded-2xl bg-[var(--color-surface-2)] p-4 text-xs text-[var(--color-muted)]">
               El factor estacional representa un multiplicador de referencia. El porcentaje mostrado es el ajuste respecto a 1.0000, no una afirmación de que el consumo real haya cambiado en esa proporción.
             </div>
           </div>
@@ -340,14 +349,14 @@ function Badge({
   text,
   color,
 }: {
-  icon: typeof CalendarDays;
+  icon: ComponentType<{ size?: number; className?: string }>;
   text: string;
   color: "indigo" | "orange" | "cyan";
 }) {
   const classes = {
-    indigo: "bg-indigo-50 text-indigo-700",
-    orange: "bg-orange-50 text-orange-700",
-    cyan: "bg-cyan-50 text-cyan-700",
+    indigo: "bg-[var(--color-info-soft)] text-[var(--color-info-strong)]",
+    orange: "bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]",
+    cyan: "bg-[var(--color-info-soft)] text-[var(--color-info-strong)]",
   };
 
   return (
@@ -367,7 +376,7 @@ function DetailSection({
 }) {
   return (
     <section>
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-[.13em] text-[#9098b1]">
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-[.13em] text-[var(--color-muted)]">
         {title}
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
@@ -382,13 +391,13 @@ function DetailCard({
 }: {
   label: string;
   value: string;
-  icon: typeof CalendarDays;
+  icon: ComponentType<{ size?: number; className?: string }>;
 }) {
   return (
-    <div className="rounded-2xl bg-[#f8f9fc] p-4">
-      <Icon size={16} className="text-orange-500" />
-      <p className="mt-2 text-[10px] text-[#9098b1]">{label}</p>
-      <p className="mt-1 text-sm font-bold text-[#1a1a2e]">{value}</p>
+    <div className="rounded-2xl bg-[var(--color-surface-2)] p-4">
+      <Icon size={16} className="text-[var(--color-accent)]" />
+      <p className="mt-2 text-[10px] text-[var(--color-muted)]">{label}</p>
+      <p className="mt-1 text-sm font-bold text-[var(--color-fg)]">{value}</p>
     </div>
   );
 }
@@ -396,7 +405,7 @@ function DetailCard({
 export default function EnergyCalendar() {
   const [calendar, setCalendar] =
     useState<CalendarioEnergeticoResponse>(EMPTY_CALENDAR);
-  const [year, setYear] = useState(2026);
+  const [year] = useState(2026);
   const [displayFilter, setDisplayFilter] =
     useState<DisplayFilter>("todos");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -465,10 +474,10 @@ export default function EnergyCalendar() {
   if (loading) {
     return (
       <div className="space-y-5">
-        <div className="h-28 animate-pulse rounded-3xl bg-[#171827]" />
+        <div className="h-28 animate-pulse rounded-3xl bg-[var(--hero-bg)]" />
         <div className="grid gap-4 xl:grid-cols-3">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-[620px] animate-pulse rounded-3xl bg-white" />
+            <div key={item} className="h-[620px] animate-pulse rounded-3xl bg-surface" />
           ))}
         </div>
       </div>
@@ -477,44 +486,43 @@ export default function EnergyCalendar() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="rounded-3xl bg-[#171827] p-6 text-white">
-        <p className="text-[10px] font-bold uppercase tracking-[.18em] text-orange-300">
-          Planeación y contexto
-        </p>
-        <div className="mt-1 flex justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Calendario Energético</h1>
-            <p className="mt-2 text-xs text-white/60">
-              Festivos, vacaciones, temperatura y actividad energética de enero a marzo.
-            </p>
+      <PageHeader
+        title="Calendario energético"
+        description="Festivos, vacaciones, temperatura y actividad energética de enero a marzo de 2026."
+        meta={
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-[var(--color-fg-secondary)]">
+            <span className="flex items-center gap-1.5">
+              <CakeSlice size={14} className="text-[var(--color-accent)]" /> Festivo
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Palmtree size={14} className="text-[var(--color-info)]" /> Vacacional
+            </span>
+            <span className="rounded-full bg-[var(--color-info-soft)] px-2.5 py-1">Sábado</span>
+            <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1">Domingo</span>
           </div>
-          <CalendarDays size={30} className="text-orange-400" />
-        </div>
-      </header>
+        }
+      />
 
       {error && (
-        <div className="rounded-2xl bg-red-50 p-4 text-xs text-red-700">
+        <div className="rounded-2xl bg-[var(--color-danger-soft)] p-4 text-xs text-[var(--color-danger-strong)]">
           {error}
         </div>
       )}
 
       <section className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-        <MetricCard icon={CalendarDays} label="Días registrados" value={calendar.resumen.dias_registrados.toLocaleString("es-MX")} color="#6366f1" background="#eef2ff" />
-        <MetricCard icon={CakeSlice} label="Días festivos" value={calendar.resumen.dias_festivos.toLocaleString("es-MX")} color="#f97316" background="#fff4ea" />
-        <MetricCard icon={Palmtree} label="Días vacacionales" value={calendar.resumen.dias_vacacionales.toLocaleString("es-MX")} color="#0891b2" background="#ecfeff" />
-        <MetricCard icon={Thermometer} label="Mínima del periodo" value={`${formatNumber(calendar.resumen.temperatura_minima_c)} °C`} color="#2563eb" background="#eff6ff" />
-        <MetricCard icon={Sun} label="Máxima del periodo" value={`${formatNumber(calendar.resumen.temperatura_maxima_c)} °C`} color="#dc2626" background="#fef2f2" />
-        <MetricCard icon={Activity} label="Factor promedio" value={formatNumber(calendar.resumen.factor_estacional_promedio, 4)} color="#059669" background="#ecfdf5" />
+        <MetricCard icon={CalendarDays} label="Días registrados" value={calendar.resumen.dias_registrados.toLocaleString("es-MX")} color="var(--chart-2)" background="var(--color-info-soft)" />
+        <MetricCard icon={CakeSlice} label="Días festivos" value={calendar.resumen.dias_festivos.toLocaleString("es-MX")} color="var(--color-accent)" background="var(--color-accent-soft)" />
+        <MetricCard icon={Palmtree} label="Días vacacionales" value={calendar.resumen.dias_vacacionales.toLocaleString("es-MX")} color="var(--chart-5)" background="var(--color-info-soft)" />
+        <MetricCard icon={Thermometer} label="Mínima del periodo" value={`${formatNumber(calendar.resumen.temperatura_minima_c)} °C`} color="var(--color-info)" background="var(--color-info-soft)" />
+        <MetricCard icon={Sun} label="Máxima del periodo" value={`${formatNumber(calendar.resumen.temperatura_maxima_c)} °C`} color="var(--color-danger-strong)" background="var(--color-danger-soft)" />
+        <MetricCard icon={Activity} label="Factor promedio" value={formatNumber(calendar.resumen.factor_estacional_promedio, 4)} color="var(--color-success-strong)" background="var(--color-success-soft)" />
       </section>
 
-      <section className="flex flex-wrap items-center gap-3 rounded-3xl border bg-white p-4">
-        <Filter size={16} className="text-indigo-500" />
-        <label className="text-[10px] font-bold text-[#9098b1]">
-          AÑO
-          <select value={year} onChange={(event) => setYear(Number(event.target.value))} className="ml-2 rounded-xl border px-3 py-2 text-xs text-[#1a1a2e]">
-            <option value={2026}>2026</option>
-          </select>
-        </label>
+      <section className="flex flex-wrap items-center gap-3 rounded-3xl border bg-surface p-4">
+        <Filter size={16} className="text-[var(--color-info)]" />
+        <span className="rounded-xl border border-border bg-[var(--color-bg)] px-3 py-2 text-xs font-bold text-[var(--color-fg-secondary)]">
+          Año {year}
+        </span>
         <div className="flex flex-wrap gap-2">
           {[
             ["todos", "Todos los días"],
@@ -524,26 +532,24 @@ export default function EnergyCalendar() {
             <button
               type="button"
               key={value}
+              aria-pressed={displayFilter === value}
               onClick={() => setDisplayFilter(value as DisplayFilter)}
-              className={`rounded-xl px-3 py-2 text-xs font-bold ${
+              className={`flex h-10 items-center rounded-xl px-3 text-xs font-bold ${
                 displayFilter === value
-                  ? "bg-[#171827] text-white"
-                  : "bg-[#f2f3f7] text-[#606881]"
+                  ? "bg-[var(--hero-bg)] text-white"
+                  : "bg-[var(--color-bg)] text-[var(--color-fg-secondary)]"
               }`}
             >
               {label}
             </button>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap gap-3 text-[10px] text-[#606881]">
-          <span className="flex items-center gap-1"><CakeSlice size={13} className="text-orange-500" />Festivo</span>
-          <span className="flex items-center gap-1"><Palmtree size={13} className="text-cyan-600" />Vacacional</span>
-          <span className="rounded bg-blue-50 px-2 py-1">Sábado</span>
-          <span className="rounded bg-violet-50 px-2 py-1">Domingo</span>
-        </div>
+        <span className="ml-auto text-[11px] text-[var(--color-muted)]">
+          {visibleDays.length} días visibles
+        </span>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
+      <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
         {MONTHS.map((month) => (
           <MonthCalendar
             key={month.value}
@@ -556,7 +562,7 @@ export default function EnergyCalendar() {
         ))}
       </section>
 
-      <p className="text-center text-[10px] text-[#9098b1]">
+      <p className="text-center text-[10px] text-[var(--color-muted)]">
         Selecciona cualquier día para consultar temperatura, factor estacional, consumo, lecturas, eventos y alertas.
       </p>
 
@@ -573,3 +579,5 @@ export default function EnergyCalendar() {
     </div>
   );
 }
+
+
