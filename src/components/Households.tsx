@@ -95,14 +95,14 @@ function typeImage(typeName: string, category: string): string {
   if (text.includes("gobierno") || text.includes("gubernamental")) return "/img/EdificioGubernamental.png";
   if (text.includes("escuela")) return "/img/EscuelaPublica.png";
   if (text.includes("hospital") || text.includes("salud")) return "/img/Hospital.png";
-  if (text.includes("local") || text.includes("comercial")) return "/img/Local.png";
+  if (text.includes("local") || text.includes("comercial")) return "/img/servicios/servicio_2.jpg";
   if (text.includes("mercado")) return "/img/Mercado.png";
   if (text.includes("semaforo")) return "/img/NodoSemaforo.png";
   if (text.includes("parque")) return "/img/Parque.png";
-  if (text.includes("planta") || text.includes("industrial")) return "/img/Planta.png";
+  if (text.includes("planta") || text.includes("industrial")) return "/img/servicios/servicio_3.jpg";
   if (text.includes("pozo")) return "/img/Pozo.png";
   if (text.includes("unifamiliar")) return "/img/ViviendaUnifamiliar.png";
-  if (text.includes("residencial") || text.includes("vivienda")) return "/img/ViviendaAlto.png";
+  if (text.includes("residencial") || text.includes("vivienda")) return "/img/servicios/servicio_5.jpg";
   return "/img/EdificioGubernamental.png";
 }
 
