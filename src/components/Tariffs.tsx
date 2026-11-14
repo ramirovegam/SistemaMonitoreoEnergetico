@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   type TarifaCreate,
   type TarifaUpdate,
 } from "../services/tarifasService";
+import { PageHeader } from "./ui/PageHeader";
 
 interface FormState {
   id_tarifa: string;
@@ -146,14 +147,14 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a2e]/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#f0f1f7] p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm p-4">
+      <div className="w-full max-w-xl rounded-3xl bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--color-border)] p-6">
           <div>
-            <h2 className="text-lg font-bold text-[#1a1a2e]">
+            <h2 className="text-lg font-bold text-[var(--color-fg)]">
               {editing ? "Editar tarifa" : "Nueva tarifa"}
             </h2>
-            <p className="mt-0.5 text-xs text-[#9098b1]">
+            <p className="mt-0.5 text-xs text-[var(--color-muted)]">
               {editing
                 ? `Configuración de la tarifa ${tarifa.codigo}`
                 : "Agregar una tarifa al catálogo"}
@@ -164,15 +165,15 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f3f7] hover:bg-[#e5e7ef] disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-bg)] hover:bg-[var(--color-border)] disabled:opacity-50"
           >
-            <X size={14} className="text-[#9098b1]" />
+            <X size={14} className="text-[var(--color-muted)]" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
           {error && (
-            <div className="flex items-start gap-2 rounded-2xl bg-[#fef2f2] p-3 text-xs text-[#b91c1c]">
+            <div className="flex items-start gap-2 rounded-2xl bg-[var(--color-danger-soft)] p-3 text-xs text-[var(--color-danger-strong)]">
               <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -180,7 +181,7 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[#606881]">
+              <span className="text-xs font-semibold text-[var(--color-fg-secondary)]">
                 ID de tarifa
               </span>
               <input
@@ -191,13 +192,13 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
                 disabled={editing || saving}
                 value={form.id_tarifa}
                 onChange={(event) => updateField("id_tarifa", event.target.value)}
-                className="rounded-xl border border-[#e5e7ef] px-3 py-2.5 text-sm outline-none focus:border-[#ff8a1f] disabled:bg-[#f8f9fc] disabled:text-[#9098b1]"
+                className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-accent)] disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-muted)]"
                 placeholder="Ej. 7"
               />
             </label>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[#606881]">
+              <span className="text-xs font-semibold text-[var(--color-fg-secondary)]">
                 Código
               </span>
               <input
@@ -207,14 +208,14 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
                 disabled={saving}
                 value={form.codigo}
                 onChange={(event) => updateField("codigo", event.target.value)}
-                className="rounded-xl border border-[#e5e7ef] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#ff8a1f]"
+                className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm uppercase outline-none focus:border-[var(--color-accent)]"
                 placeholder="Ej. PDBT"
               />
             </label>
           </div>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-[#606881]">Nombre</span>
+            <span className="text-xs font-semibold text-[var(--color-fg-secondary)]">Nombre</span>
             <input
               type="text"
               required
@@ -222,14 +223,14 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
               disabled={saving}
               value={form.nombre}
               onChange={(event) => updateField("nombre", event.target.value)}
-              className="rounded-xl border border-[#e5e7ef] px-3 py-2.5 text-sm outline-none focus:border-[#ff8a1f]"
+              className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-accent)]"
               placeholder="Nombre descriptivo de la tarifa"
             />
           </label>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[#606881]">
+              <span className="text-xs font-semibold text-[var(--color-fg-secondary)]">
                 Categoría
               </span>
               <input
@@ -239,13 +240,13 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
                 disabled={saving}
                 value={form.categoria}
                 onChange={(event) => updateField("categoria", event.target.value)}
-                className="rounded-xl border border-[#e5e7ef] px-3 py-2.5 text-sm outline-none focus:border-[#ff8a1f]"
+                className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-accent)]"
                 placeholder="Ej. DOMESTICA"
               />
             </label>
 
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-[#606881]">
+              <span className="text-xs font-semibold text-[var(--color-fg-secondary)]">
                 Límite DAC (kWh/mes)
               </span>
               <input
@@ -257,7 +258,7 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
                 onChange={(event) =>
                   updateField("limite_dac_kwh_mes", event.target.value)
                 }
-                className="rounded-xl border border-[#e5e7ef] px-3 py-2.5 text-sm outline-none focus:border-[#ff8a1f]"
+                className="rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-accent)]"
                 placeholder="Vacío si no aplica"
               />
             </label>
@@ -268,20 +269,67 @@ function TarifaForm({ tarifa, onClose, onSaved }: TarifaFormProps) {
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-xl border border-[#e5e7ef] px-4 py-2.5 text-xs font-semibold text-[#606881] disabled:opacity-50"
+              className="rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-xs font-semibold text-[var(--color-fg-secondary)] disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[#ff8a1f] px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="rounded-xl bg-[var(--color-accent)] px-4 py-2.5 text-xs font-semibold text-[var(--accent-contrast)] disabled:opacity-50"
             >
               {saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear tarifa"}
             </button>
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function AccionesTarifa({
+  tarifa,
+  deletingId,
+  onEdit,
+  onDelete,
+}: {
+  tarifa: Tarifa;
+  deletingId: number | null;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const deleting = deletingId === tarifa.id_tarifa;
+
+  return (
+    <div className="flex justify-end gap-2">
+      <button
+        type="button"
+        onClick={onEdit}
+        aria-label={`Editar ${tarifa.nombre}`}
+        title="Editar tarifa"
+        className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-info-soft)] text-[var(--chart-2)]"
+      >
+        <Edit3 size={15} />
+      </button>
+
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        aria-label={`Eliminar ${tarifa.nombre}`}
+        title={
+          tarifa.total_servicios > 0
+            ? "La API impedirá eliminar una tarifa asignada"
+            : "Eliminar tarifa"
+        }
+        className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-danger-soft)] text-[var(--color-danger)] disabled:opacity-40"
+      >
+        {deleting ? (
+          <RefreshCw size={15} className="animate-spin" />
+        ) : (
+          <Trash2 size={15} />
+        )}
+      </button>
     </div>
   );
 }
@@ -392,8 +440,8 @@ export default function Tariffs() {
     return (
       <div className="card p-8">
         <div className="flex items-center justify-center gap-3">
-          <RefreshCw size={20} className="animate-spin text-[#ff8a1f]" />
-          <p className="text-sm text-[#9098b1]">
+          <RefreshCw size={20} className="animate-spin text-[var(--color-accent)]" />
+          <p className="text-sm text-[var(--color-muted)]">
             Cargando tarifas desde PostgreSQL...
           </p>
         </div>
@@ -403,42 +451,34 @@ export default function Tariffs() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-        <div>
-          <h1
-            className="text-2xl font-bold text-[#1a1a2e]"
-            style={{ fontFamily: "Nunito, sans-serif" }}
-          >
-            Módulo de Tarifas
-          </h1>
-          <p className="mt-0.5 text-sm text-[#9098b1]">
-            Administración del catálogo tarifario de PostgreSQL
-          </p>
-        </div>
+      <PageHeader
+        title="Tarifas"
+        description="Administración del catálogo tarifario de PostgreSQL."
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => void cargarTarifas()}
+              className="flex h-10 items-center gap-2 rounded-xl border border-[var(--color-border)] bg-surface px-3.5 text-xs font-semibold text-[var(--color-fg-secondary)]"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              Actualizar
+            </button>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void cargarTarifas()}
-            className="flex items-center gap-2 rounded-xl border border-[#e5e7ef] bg-white px-3 py-2 text-xs font-semibold text-[#606881]"
-          >
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            Actualizar
-          </button>
-
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-2 rounded-xl bg-[#ff8a1f] px-4 py-2 text-xs font-semibold text-white"
-          >
-            <Plus size={14} />
-            Nueva tarifa
-          </button>
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex h-10 items-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 text-xs font-semibold text-[var(--accent-contrast)]"
+            >
+              <Plus size={15} />
+              Nueva tarifa
+            </button>
+          </>
+        }
+      />
 
       {error && (
-        <div className="flex items-start justify-between gap-3 rounded-2xl bg-[#fef2f2] p-4 text-xs text-[#b91c1c]">
+        <div className="flex items-start justify-between gap-3 rounded-2xl bg-[var(--color-danger-soft)] p-4 text-xs text-[var(--color-danger-strong)]">
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
             <span>{error}</span>
@@ -450,7 +490,7 @@ export default function Tariffs() {
       )}
 
       {notice && (
-        <div className="flex items-center justify-between rounded-2xl bg-[#ecfdf5] p-4 text-xs font-medium text-[#047857]">
+        <div className="flex items-center justify-between rounded-2xl bg-[var(--color-success-soft)] p-4 text-xs font-medium text-[var(--color-success-strong)]">
           <span>{notice}</span>
           <button type="button" onClick={() => setNotice(null)}>
             <X size={14} />
@@ -464,29 +504,29 @@ export default function Tariffs() {
             label: "Tarifas registradas",
             value: tarifas.length,
             icon: BadgeDollarSign,
-            color: "#6366f1",
-            background: "#eef2ff",
+            color: "var(--chart-2)",
+            background: "var(--color-info-soft)",
           },
           {
             label: "Categorías",
             value: categorias.length,
             icon: BadgeDollarSign,
-            color: "#ff8a1f",
-            background: "#fff4ea",
+            color: "var(--color-accent)",
+            background: "var(--color-accent-soft)",
           },
           {
             label: "Tarifas con límite DAC",
             value: tarifasConDac,
             icon: AlertTriangle,
-            color: "#f59e0b",
-            background: "#fffbeb",
+            color: "var(--color-warning)",
+            background: "var(--color-warning-soft)",
           },
           {
             label: "Servicios asociados",
             value: totalServicios,
             icon: Users,
-            color: "#10b981",
-            background: "#ecfdf5",
+            color: "var(--color-success)",
+            background: "var(--color-success-soft)",
           },
         ].map((item) => (
           <div key={item.label} className="card p-4">
@@ -496,10 +536,10 @@ export default function Tariffs() {
             >
               <item.icon size={16} color={item.color} />
             </div>
-            <p className="text-[11px] font-medium text-[#9098b1]">
+            <p className="text-[11px] font-medium text-[var(--color-muted)]">
               {item.label}
             </p>
-            <p className="mt-0.5 text-lg font-bold text-[#1a1a2e]">
+            <p className="mt-0.5 text-lg font-bold text-[var(--color-fg)]">
               {item.value.toLocaleString("es-MX")}
             </p>
           </div>
@@ -510,20 +550,22 @@ export default function Tariffs() {
         <div className="relative min-w-52 flex-1">
           <Search
             size={14}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9098b1]"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)]"
           />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar por ID, código, nombre o categoría..."
-            className="w-full rounded-2xl border border-[#e5e7ef] bg-white py-2.5 pl-10 pr-4 text-sm text-[#1a1a2e] outline-none placeholder:text-[#9098b1] focus:border-[#ff8a1f]"
+            aria-label="Buscar tarifas"
+            className="w-full rounded-2xl border border-[var(--color-border)] bg-surface py-2.5 pl-10 pr-4 text-sm text-[var(--color-fg)] outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]"
           />
         </div>
 
         <select
           value={filterCategory}
           onChange={(event) => setFilterCategory(event.target.value)}
-          className="rounded-2xl border border-[#e5e7ef] bg-white px-4 py-2.5 text-sm text-[#1a1a2e] outline-none focus:border-[#ff8a1f]"
+          aria-label="Filtrar por categoría"
+          className="rounded-2xl border border-[var(--color-border)] bg-surface px-4 py-2.5 text-sm text-[var(--color-fg)] outline-none focus:border-[var(--color-accent)]"
         >
           <option value="Todas">Todas las categorías</option>
           {categorias.map((categoria) => (
@@ -533,16 +575,16 @@ export default function Tariffs() {
           ))}
         </select>
 
-        <span className="text-xs font-medium text-[#9098b1]">
+        <span className="text-xs font-medium text-[var(--color-muted)]">
           {filtered.length} registros
         </span>
       </div>
 
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[850px] text-left">
-            <thead className="border-b border-[#f0f1f7] bg-[#f8f9fc]">
-              <tr className="text-[11px] font-semibold uppercase tracking-wide text-[#9098b1]">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-surface-2)]">
+              <tr className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
                 <th className="px-5 py-3">ID</th>
                 <th className="px-5 py-3">Código</th>
                 <th className="px-5 py-3">Nombre</th>
@@ -553,60 +595,38 @@ export default function Tariffs() {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-[#f0f1f7]">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {filtered.map((tarifa) => (
-                <tr key={tarifa.id_tarifa} className="hover:bg-[#fbfbfd]">
-                  <td className="px-5 py-4 text-xs font-semibold text-[#9098b1]">
+                <tr key={tarifa.id_tarifa} className="hover:bg-[var(--color-surface-2)]">
+                  <td className="px-5 py-4 text-xs font-semibold text-[var(--color-muted)]">
                     {tarifa.id_tarifa}
                   </td>
                   <td className="px-5 py-4">
-                    <span className="rounded-full bg-[#eef2ff] px-2.5 py-1 text-xs font-bold text-[#6366f1]">
+                    <span className="rounded-full bg-[var(--color-info-soft)] px-2.5 py-1 text-xs font-bold text-[var(--chart-2)]">
                       {tarifa.codigo}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-sm font-semibold text-[#1a1a2e]">
+                  <td className="px-5 py-4 text-sm font-semibold text-[var(--color-fg)]">
                     {tarifa.nombre}
                   </td>
-                  <td className="px-5 py-4 text-xs text-[#606881]">
+                  <td className="px-5 py-4 text-xs text-[var(--color-fg-secondary)]">
                     {formatCategory(tarifa.categoria)}
                   </td>
-                  <td className="px-5 py-4 text-xs font-semibold text-[#f59e0b]">
+                  <td className="px-5 py-4 text-xs font-semibold text-[var(--color-warning)]">
                     {tarifa.limite_dac_kwh_mes === null
                       ? "No aplica"
                       : `${tarifa.limite_dac_kwh_mes.toLocaleString("es-MX")} kWh/mes`}
                   </td>
-                  <td className="px-5 py-4 text-xs font-bold text-[#10b981]">
+                  <td className="px-5 py-4 text-xs font-bold text-[var(--color-success)]">
                     {tarifa.total_servicios.toLocaleString("es-MX")}
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(tarifa)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef2ff] text-[#6366f1] hover:bg-[#e0e7ff]"
-                        title="Editar tarifa"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(tarifa)}
-                        disabled={deletingId === tarifa.id_tarifa}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#fef2f2] text-[#ef4444] hover:bg-[#fee2e2] disabled:opacity-40"
-                        title={
-                          tarifa.total_servicios > 0
-                            ? "La API impedirá eliminar una tarifa asignada"
-                            : "Eliminar tarifa"
-                        }
-                      >
-                        {deletingId === tarifa.id_tarifa ? (
-                          <RefreshCw size={14} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                      </button>
-                    </div>
+                    <AccionesTarifa
+                      tarifa={tarifa}
+                      deletingId={deletingId}
+                      onEdit={() => openEdit(tarifa)}
+                      onDelete={() => void handleDelete(tarifa)}
+                    />
                   </td>
                 </tr>
               ))}
@@ -614,10 +634,62 @@ export default function Tariffs() {
           </table>
         </div>
 
+        <ul className="divide-y divide-[var(--color-border)] lg:hidden">
+          {filtered.map((tarifa) => (
+            <li key={tarifa.id_tarifa} className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-[var(--color-info-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--chart-2)]">
+                      {tarifa.codigo}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[var(--color-muted)]">
+                      #{tarifa.id_tarifa}
+                    </span>
+                  </div>
+                  <p className="mt-1.5 truncate text-sm font-semibold text-[var(--color-fg)]">
+                    {tarifa.nombre}
+                  </p>
+                  <p className="text-xs text-[var(--color-fg-secondary)]">
+                    {formatCategory(tarifa.categoria)}
+                  </p>
+                </div>
+                <AccionesTarifa
+                  tarifa={tarifa}
+                  deletingId={deletingId}
+                  onEdit={() => openEdit(tarifa)}
+                  onDelete={() => void handleDelete(tarifa)}
+                />
+              </div>
+
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl bg-[var(--color-surface-2)] p-2.5">
+                  <dt className="text-[10px] font-medium text-[var(--color-muted)]">
+                    Límite DAC
+                  </dt>
+                  <dd className="mt-0.5 font-semibold text-[var(--color-warning)]">
+                    {tarifa.limite_dac_kwh_mes === null
+                      ? "No aplica"
+                      : `${tarifa.limite_dac_kwh_mes.toLocaleString("es-MX")} kWh/mes`}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-[var(--color-surface-2)] p-2.5">
+                  <dt className="text-[10px] font-medium text-[var(--color-muted)]">
+                    Servicios
+                  </dt>
+                  <dd className="mt-0.5 font-semibold text-[var(--color-success)]">
+                    {tarifa.total_servicios.toLocaleString("es-MX")}
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+
         {filtered.length === 0 && (
           <div className="p-10 text-center">
-            <BadgeDollarSign size={30} className="mx-auto mb-3 text-[#b0b6c8]" />
-            <p className="text-sm text-[#9098b1]">
+            <BadgeDollarSign size={30} className="mx-auto mb-3 text-[var(--color-muted-2)]" />
+            <p className="text-sm text-[var(--color-muted)]">
               No se encontraron tarifas con los filtros seleccionados.
             </p>
           </div>
@@ -637,3 +709,5 @@ export default function Tariffs() {
     </div>
   );
 }
+
+

@@ -1,35 +1,33 @@
-## SIMET - Sistema de Monitoreo Energético
+# SIMET — Sistema de Monitoreo Energético
 
-Panel web para monitorear el consumo eléctrico de hogares, medidores y zonas de Toluca como ciudad inteligente. Proyecto de la materia _Tópicos de Tecnologías de Datos_.
+Panel web para monitorear el consumo eléctrico de hogares, medidores y zonas de una ciudad inteligente (Toluca). Proyecto de la materia *Tópicos de Tecnologías de Datos*.
 
-### Arquitectura
+## 1. Arquitectura
 
 La aplicación se divide en tres capas que se ejecutan de forma independiente:
 
 | Capa | Tecnología | Dirección local |
 |---|---|---|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS | http://localhost:8443 |
-| Backend (API) | Python, FastAPI, SQLAlchemy | http://127.0.0.1:8000 |
-| Base de datos | PostgreSQL (esquema `energia`) | Definida en `DATABASE_URL` |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, Recharts, Leaflet, Lucide | http://localhost:8443 |
+| Backend (API) | Python, FastAPI, SQLAlchemy 2 | http://127.0.0.1:8000 |
+| Base de datos | PostgreSQL (esquema `energia`, luego `datamart`) | Definida en `DATABASE_URL` |
 
 Flujo de una petición:
 
-- El usuario interactúa con la interfaz en React.
-- React envía una petición HTTP al backend y recibe JSON.
-- FastAPI consulta PostgreSQL mediante SQLAlchemy.
-- FastAPI devuelve los resultados y React actualiza la interfaz.
+1. El usuario interactúa con la interfaz en React.
+2. React envía una petición HTTP al backend y recibe JSON.
+3. FastAPI consulta PostgreSQL mediante SQLAlchemy.
+4. FastAPI devuelve los resultados y React actualiza la interfaz.
 
-La documentación interactiva de la API (Swagger) está en http://127.0.0.1:8000/docs.
+Documentación interactiva de la API (Swagger): **http://127.0.0.1:8000/docs**.
 
-### Requisitos
+## 2. Requisitos
 
 - Python 3.10 o superior
-- Node.js 20.19 o superior (requerido por Vite 8)
-- PostgreSQL con el esquema `energia` creado
+- Node.js 20.19 o superior (Vite 8)
+- PostgreSQL
 
-### Configuración
-
-Copia la plantilla de variables de entorno y ajusta los valores:
+## 3. Configuración
 
 ```bash
 cp .env.example .env
@@ -47,320 +45,135 @@ DATABASE_URL=postgresql+psycopg://usuario:password@localhost:5432/energia_hsd
 VITE_API_URL=http://127.0.0.1:8000
 ```
 
-Crea el esquema de la base de datos. `psql` usa la misma cadena de conexión, pero sin el prefijo `+psycopg`:
+Crear el esquema de la base de datos:
 
 ```bash
 psql "postgresql://usuario:password@localhost:5432/energia_hsd" -f backend/sql/schema.sql
 ```
 
-### Ejecución en desarrollo
+## 4. Ejecución
 
 Se necesitan dos terminales abiertas en la raíz del proyecto.
 
-#### Terminal 1: backend
+### Terminal 1 — Backend
 
 ```bash
-# Crear el entorno virtual
 python -m venv ven
-
-# Activarlo (Windows, PowerShell)
-.\ven\Scripts\Activate.ps1
-
-# Activarlo (Linux / macOS)
-source ven/bin/activate
-
-# Instalar dependencias
+.\ven\Scripts\Activate.ps1        # Windows
+source ven/bin/activate           # Linux / macOS
 pip install -r requirements.txt
-
-# Levantar la API
 python -m uvicorn backend.app.main:app --reload --port 8000
 ```
 
-La API queda disponible en http://127.0.0.1:8000 y Swagger en http://127.0.0.1:8000/docs.
+La API queda en http://127.0.0.1:8000 · Swagger en http://127.0.0.1:8000/docs
 
-#### Terminal 2: frontend
+### Terminal 2 — Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-La interfaz queda disponible en http://localhost:8443.
+La interfaz queda en http://localhost:8443
 
-### Endpoints disponibles
+### Producción (frontend estático)
+
+```bash
+npm run build
+npm run preview     # sirve el build en http://localhost:8443
+```
+
+## 5. Datos y versión genérica (HSD)
+
+El sistema usa un **datamart** con esquema `datamart` y vistas `dm_*` para consumo analítico (KPIs, consumo por zona/servicio, anomalías, validación).
+
+El **generador HSD (Hyper-Synthetic Data) v2.0** crea datos sintéticos con técnica similar a redes neuronales (tanh), mezcla gaussiana y estacionalidad, sin depender de una base real:
+
+- `GET /api/generador-hsd/info`
+- `GET /api/generador-hsd/status`
+- `GET /api/generador-hsd/perfiles-existentes`
+- `POST /api/generador-hsd/generar-masivo` — genera lecturas a partir de `fecha_inicio`, `dias`, `factor_escala`, `usar_neural_like`.
+
+```json
+POST /api/generador-hsd/generar-masivo
+{
+  "fecha_inicio": "2024-01-01",
+  "dias": 730,
+  "factor_escala": 50,
+  "usar_neural_like": true
+}
+```
+
+Con esta vía se preparan los datos para alcanzar escalas de **10M+ registros** y la conexión con **Power BI**.
+
+## 6. Endpoints principales
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/` | Verifica que el backend está activo |
-| GET | `/api/test` | Prueba de comunicación con el frontend |
-| GET | `/api/zonas` | Lista las zonas registradas |
-| GET | `/api/zonas/{id_zona}` | Devuelve el detalle de una zona |
+| GET | `/api/test` | Prueba de comunicación frontend ↔ backend |
+| GET | `/api/zonas` | Lista zonas registradas |
+| GET | `/api/zonas/{id_zona}` | Detalle de una zona |
+| GET | `/api/dashboard` | KPIs y series de consumo |
+| GET | `/api/medidores` | Catálogo de medidores |
+| GET | `/api/historial-lecturas` | Historial, calidad y huecos |
+| GET | `/api/analisis-energetico/medidores` | Catálogo para análisis |
+| GET | `/api/analisis-energetico/agregado` | Análisis agregado (mes, nivel, tipo de día) |
+| GET | `/api/analisis-energetico/resumen` | Resumen de análisis |
+| GET | `/api/analisis-energetico/curva-horaria` | Curva horaria |
+| GET | `/api/analisis-energetico/perfil-horario` | Perfil horario |
+| GET | `/api/analisis-energetico/mapa-calor` | Mapa de calor |
+| GET | `/api/alertas` | Listado de alertas |
+| GET | `/api/tarifas` | Catálogo tarifario |
+| GET | `/api/calendario` | Calendario energético |
+| GET | `/api/generador-hsd/...` | Generador de datos sintéticos |
 
-### Estructura del proyecto
+Swagger completo: http://127.0.0.1:8000/docs
+
+## 7. Estructura del proyecto
 
 ```text
 .
 ├── backend/
 │   ├── app/
-│   │   ├── models/       Modelos SQLAlchemy
-│   │   ├── routers/      Endpoints de FastAPI
-│   │   ├── schemas/      Esquemas de validación Pydantic
-│   │   ├── database.py   Conexión y sesiones de PostgreSQL
-│   │   └── main.py       Configuración principal de la API
-│   └── sql/              Scripts SQL del esquema
+│   │   ├── core/        Configuración transversal
+│   │   ├── models/      Modelos SQLAlchemy
+│   │   ├── routers/     Endpoints de FastAPI
+│   │   ├── schemas/     Esquemas Pydantic
+│   │   ├── services/    Lógica de negocio
+│   │   ├── database.py  Motor y sesiones
+│   │   └── main.py      App principal
+│   └── sql/             Scripts SQL (esquema energia / datamart)
 ├── src/
-│   ├── components/       Páginas y componentes de la interfaz
-│   ├── data/             Datos sintéticos temporales
-│   └── services/         Clientes HTTP hacia la API
-├── requirements.txt      Dependencias de Python
-└── package.json          Dependencias y scripts del frontend
+│   ├── components/      Páginas y componentes React
+│   ├── services/        Clientes HTTP hacia la API
+│   ├── data/            Tipos de dominio y datos sintéticos temporales
+│   └── App.tsx          Layout, navegación y topbar
+├── public/              Assets estáticos (GeoJSON de zonas)
+├── docs/                 Documentación del generador y HSD
+├── Documentacion/       Documentación del proyecto y PDF de la API
+├── backend/sql/
+├── requirements.txt
+├── package.json
+└── ...
 ```
 
-### Conexión del dashboard con PostgreSQL: ejemplo Zonas
+## 8. Estado actual
 
-La integración del módulo **Zonas** reemplaza los valores de `src/data/synthetic.ts` por información real de la tabla `energia.zona` de PostgreSQL. La conexión no se realiza directamente desde React. El frontend consume una API de FastAPI y el backend es el responsable de consultar la base de datos.
+- Interfaz completa y funcional: Resumen, Zonas, Servicios, Medidores, Alertas, Análisis, Lecturas, Calendario, Tarifas.
+- Los módulos que consumen datos reales consultan PostgreSQL; el módulo Zonas ya está conectado.
+- Las demás pantallas consumen servicios del backend con estados de carga, error, vacío y reintento.
+- El frontend quedó pulido en UI/UX: encabezados unificados, jerarquía tipográfica coherente, controles accesibles, estados vacíos y errores accionables, responsive sin overflow horizontal, controles táctiles mínimos de 40 px.
+- Pendiente de datos: la tabla `energia.lectura` debe poblase (o regenerarse con el generador HSD) para que las gráficas de Análisis se rendericen.
 
-```text
-PostgreSQL: energia.zona
-        ↓
-Modelo SQLAlchemy: backend/app/models/zona.py
-        ↓
-Esquema Pydantic: backend/app/schemas/zona.py
-        ↓
-Router FastAPI: backend/app/routers/zonas.py
-        ↓
-Servicio HTTP: src/services/zonasService.ts
-        ↓
-Interfaz React: src/components/Zones.tsx
-```
+## 9. Puesta en producción local
 
-#### 1. Conexión y sesión de base de datos
+- Frontend: **http://localhost:8443** (vite dev o `npm run preview`)
+- Backend: **http://127.0.0.1:8000**
+- Swagger: **http://127.0.0.1:8000/docs**
 
-El archivo `backend/app/database.py` lee `DATABASE_URL`, crea el motor de SQLAlchemy y proporciona una sesión por petición mediante `get_db()`.
+## 10. Calidad verificada
 
-```python
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-```
-
-La sesión se cierra al terminar cada petición, incluso si ocurre un error. Las credenciales de PostgreSQL permanecen en el backend y no se exponen al navegador.
-
-#### 2. Modelo SQLAlchemy
-
-El archivo `backend/app/models/zona.py` representa la tabla real `energia.zona`. Cada atributo del modelo corresponde a una columna de PostgreSQL.
-
-```python
-class Zona(Base):
-    __tablename__ = "zona"
-    __table_args__ = {"schema": "energia"}
-
-    id_zona: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
-    tipo_urbano: Mapped[str] = mapped_column(String(20), nullable=False)
-    superficie_km2: Mapped[Decimal] = mapped_column(Numeric(6, 3), nullable=False)
-    factor_socioeconomico: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
-    poblacion_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    viviendas_habitadas: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    grado_rezago_representativo: Mapped[str | None] = mapped_column(String(12), nullable=True)
-    id_referencia: Mapped[int | None] = mapped_column(Integer, nullable=True)
-```
-
-La propiedad `__table_args__` es importante porque indica que la tabla se encuentra dentro del esquema `energia`, no en el esquema público predeterminado.
-
-#### 3. Esquema Pydantic
-
-El archivo `backend/app/schemas/zona.py` define la estructura JSON que la API entrega al frontend. También valida los tipos y permite convertir objetos SQLAlchemy.
-
-```python
-class ZonaResponse(BaseModel):
-    id_zona: int
-    nombre: str
-    tipo_urbano: str
-    superficie_km2: float
-    factor_socioeconomico: float
-    poblacion_total: int | None
-    viviendas_habitadas: int | None
-    grado_rezago_representativo: str | None
-    id_referencia: int | None
-
-    model_config = ConfigDict(from_attributes=True)
-```
-
-El modelo SQLAlchemy describe cómo se almacena la información. El esquema Pydantic describe cómo sale la información por la API.
-
-#### 4. Router de FastAPI
-
-El archivo `backend/app/routers/zonas.py` contiene los endpoints. La función `listar_zonas` obtiene una sesión con `Depends(get_db)`, consulta la tabla y devuelve los registros ordenados.
-
-```python
-router = APIRouter(prefix="/api/zonas", tags=["Zonas"])
-
-
-@router.get("", response_model=list[ZonaResponse])
-def listar_zonas(db: Session = Depends(get_db)):
-    consulta = select(Zona).order_by(Zona.nombre.asc())
-    return db.scalars(consulta).all()
-
-
-@router.get("/{id_zona}", response_model=ZonaResponse)
-def obtener_zona(id_zona: int, db: Session = Depends(get_db)):
-    zona = db.get(Zona, id_zona)
-    if zona is None:
-        raise HTTPException(status_code=404, detail="La zona solicitada no existe")
-    return zona
-```
-
-El router se registra en `backend/app/main.py`:
-
-```python
-from .routers.zonas import router as zonas_router
-
-app.include_router(zonas_router)
-```
-
-FastAPI publica entonces:
-
-- `GET /api/zonas`: devuelve todas las zonas.
-- `GET /api/zonas/{id_zona}`: devuelve una zona por identificador.
-
-#### 5. Permisos CORS
-
-Como React y FastAPI se ejecutan en direcciones distintas durante el desarrollo, `backend/app/main.py` autoriza el origen del frontend mediante `CORSMiddleware`.
-
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8443",
-        "http://127.0.0.1:8443",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-Sin esta configuración, el navegador puede bloquear la petición aunque la API y PostgreSQL estén funcionando correctamente.
-
-#### 6. Servicio del frontend
-
-El archivo `src/services/zonasService.ts` centraliza la comunicación con la API. La interfaz `Zona` describe el JSON esperado y `obtenerZonas()` realiza la petición HTTP.
-
-```typescript
-export interface Zona {
-  id_zona: number;
-  nombre: string;
-  tipo_urbano: string;
-  superficie_km2: number;
-  factor_socioeconomico: number;
-  poblacion_total: number | null;
-  viviendas_habitadas: number | null;
-  grado_rezago_representativo: string | null;
-  id_referencia: number | null;
-}
-
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
-export async function obtenerZonas(): Promise<Zona[]> {
-  const response = await fetch(`${API_URL}/api/zonas`);
-
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar las zonas");
-  }
-
-  return response.json();
-}
-```
-
-El servicio evita repetir direcciones y lógica HTTP dentro de los componentes. Para cambiar la URL del backend solamente se modifica `VITE_API_URL`.
-
-#### 7. Consumo desde React
-
-El archivo `src/components/Zones.tsx` dejó de importar `zoneData` desde `synthetic.ts`. Ahora carga las zonas reales cuando el componente se monta.
-
-```tsx
-import { useEffect, useState } from "react";
-import { obtenerZonas, type Zona } from "../services/zonasService";
-
-const [zonas, setZonas] = useState<Zona[]>([]);
-const [selectedId, setSelectedId] = useState<number | null>(null);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState<string | null>(null);
-
-useEffect(() => {
-  const cargarZonas = async () => {
-    try {
-      const datos = await obtenerZonas();
-      setZonas(datos);
-      setSelectedId(datos.length > 0 ? datos[0].id_zona : null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar zonas");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  cargarZonas();
-}, []);
-```
-
-React guarda la respuesta en el estado `zonas`. Cuando se selecciona una zona, el componente busca el registro correspondiente y presenta población, viviendas, superficie, factor socioeconómico, tipo urbano y grado de rezago.
-
-También se calculan indicadores derivados sin alterar los datos de PostgreSQL:
-
-```typescript
-const densidadPoblacional =
-  zona.poblacion_total !== null && zona.superficie_km2 > 0
-    ? zona.poblacion_total / zona.superficie_km2
-    : null;
-
-const habitantesPorVivienda =
-  zona.poblacion_total !== null &&
-  zona.viviendas_habitadas !== null &&
-  zona.viviendas_habitadas > 0
-    ? zona.poblacion_total / zona.viviendas_habitadas
-    : null;
-```
-
-#### 8. Resultado de la integración
-
-Al abrir el módulo Zonas ocurre lo siguiente:
-
-1. `Zones.tsx` ejecuta `obtenerZonas()`.
-2. `zonasService.ts` solicita `GET /api/zonas`.
-3. FastAPI recibe la petición en `routers/zonas.py`.
-4. SQLAlchemy consulta `energia.zona` mediante el modelo `Zona`.
-5. Pydantic transforma y valida los registros.
-6. FastAPI devuelve un arreglo JSON.
-7. React guarda el resultado y vuelve a renderizar el dashboard.
-
-De esta forma, nombres como **Toluca de Lerdo**, **San Pablo Autopan** y las demás zonas registradas provienen de PostgreSQL. El archivo `synthetic.ts` se conserva temporalmente porque otros módulos todavía pueden utilizarlo, pero el módulo Zonas ya no depende de datos simulados.
-
-#### 9. Prueba y diagnóstico
-
-Antes de revisar el frontend se debe comprobar el endpoint:
-
-```text
-http://127.0.0.1:8000/api/zonas
-```
-
-También puede utilizarse Swagger:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Si el endpoint devuelve JSON, la conexión PostgreSQL → FastAPI funciona. Si el endpoint funciona pero el dashboard no carga, se debe revisar `VITE_API_URL`, CORS y la consola del navegador.
-
-### Estado actual
-
-La integración con PostgreSQL se realiza de forma incremental. El módulo Zonas ya consume información real de `energia.zona` mediante FastAPI. Otros módulos todavía pueden utilizar datos sintéticos de `src/data/synthetic.ts` hasta que se implementen sus modelos, esquemas, routers y servicios correspondientes.
+- `npx tsc --noEmit` sin errores.
+- `npm run build` exitoso.
+- Auditoría con detector `impeccable` sin hallazgos.
+- Navegación en 9 rutas con render correcto y sin errores de consola.
