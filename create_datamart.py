@@ -52,4 +52,29 @@ with engine.begin() as conn:
                (SELECT COUNT(*) FROM energia.alerta) AS total_alertas,
                (SELECT SUM(consumo_real_kwh) FROM energia.lectura) AS consumo_total_acumulado
     '''))
+    conn.execute(text('''
+        CREATE OR REPLACE VIEW datamart.dm_consumo_por_servicio AS
+        SELECT DATE_TRUNC('month', l.ts) AS mes,
+               z.nombre AS zona,
+               ts.clave AS tipo_servicio,
+               COUNT(l.ts) AS lecturas,
+               SUM(l.consumo_real_kwh) AS consumo_real_kwh
+        FROM energia.lectura l
+        JOIN energia.medidor m ON m.id_medidor = l.id_medidor
+        JOIN energia.servicio s ON s.id_servicio = m.id_servicio
+        JOIN energia.zona z ON z.id_zona = s.id_zona
+        JOIN energia.tipo_servicio ts ON ts.id_tipo_servicio = s.id_tipo_servicio
+        GROUP BY DATE_TRUNC('month', l.ts), z.nombre, ts.clave
+    '''))
+    conn.execute(text('''
+        CREATE OR REPLACE VIEW datamart.dm_validacion_integridad AS
+        SELECT (SELECT COUNT(*) FROM energia.lectura) AS lecturas_energia,
+               (SELECT COALESCE(SUM(num_lecturas), 0) FROM datamart.dm_kpi_diarios) AS lecturas_datamart,
+               (SELECT COUNT(*) FROM energia.calendario) AS fechas_esperadas,
+               (SELECT COUNT(*) FROM datamart.dm_kpi_diarios) AS fechas_datamart,
+               (SELECT COUNT(*) FROM energia.zona) AS zonas_energia,
+               (SELECT COUNT(DISTINCT zona) FROM datamart.dm_consumo_zona_mensual) AS zonas_datamart,
+               (SELECT COUNT(*) FROM energia.servicio) AS servicios,
+               (SELECT COUNT(*) FROM energia.medidor) AS medidores
+    '''))
     print('DATAMART_CREATED')
