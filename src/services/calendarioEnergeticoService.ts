@@ -23,6 +23,8 @@ export interface CalendarioEnergeticoResponse {
   anio: number;
   mes_inicio: number;
   mes_fin: number;
+  anio_min: number | null;
+  anio_max: number | null;
   resumen: ResumenCalendario;
   dias: DiaCalendario[];
 }
@@ -42,15 +44,17 @@ export interface DetalleDia extends DiaCalendario {
 }
 
 export async function obtenerCalendarioEnergetico(
-  anio = 2026,
+  anio?: number,
   mesInicio = 1,
-  mesFin = 3,
+  mesFin = 12,
 ): Promise<CalendarioEnergeticoResponse> {
   const params = new URLSearchParams({
-    anio: String(anio),
     mes_inicio: String(mesInicio),
     mes_fin: String(mesFin),
   });
+  if (anio !== undefined) {
+    params.set("anio", String(anio));
+  }
   const response = await fetch(
     `${API_URL}/api/calendario-energetico?${params.toString()}`,
   );

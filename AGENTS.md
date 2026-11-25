@@ -1,120 +1,109 @@
 # AGENTS.md
 
-Guía de contexto para agentes de código (Claude Code, Codex, etc.) y colaboradores que trabajen en este repositorio.
+Contexto para agentes de código y colaboradores. Léase antes de tocar el repositorio.
+Para instalación y referencia de la API, ver `README.md`.
 
-## Qué es el proyecto
+## Qué es este proyecto
 
-**SIMET** (Sistema de Monitoreo Energético) es un panel web para monitorear el consumo eléctrico de hogares, medidores y zonas de una ciudad inteligente (Toluca). Es un proyecto académico de la materia *Tópicos de Tecnologías de Datos*.
+**SIMET** es la capa de aplicación del proyecto HyperDataSynthetic: un panel web que lee el consumo eléctrico de una ciudad inteligente desde PostgreSQL y lo presenta en nueve pantallas.
 
-Estado actual: la interfaz está completa a nivel visual, pero casi toda funciona con **datos sintéticos generados en el frontend**. El backend apenas empieza: expone un único recurso real (`zonas`) leído desde PostgreSQL.
+Reparto de responsabilidades, que es la regla más importante de este repositorio:
+
+- **El data engine** ([`KrC234/data-engine-for-energy-analysis`](https://github.com/KrC234/data-engine-for-energy-analysis)) es dueño del esquema `energia`, de los catálogos y del volumen de datos. Genera 5,000 servicios, 5,000 medidores y 10,800,000 lecturas horarias entre el 1 de enero y el 31 de marzo de 2026.
+- **Este repositorio** es dueño de la API y de la interfaz. Consume el esquema, no lo define.
+
+Si una tarea implica cambiar una tabla, la pregunta correcta no es "¿cómo lo cambio aquí?" sino "¿el data engine ya lo tiene así?".
+
+## Estado actual
+
+La aplicación está completa y funciona de punta a punta: nueve pantallas y doce routers registrados. La fusión con `develop-v3` añadió el datamart (esquema `datamart`, vistas `dm_*`) y el generador HSD v2.0 para escalar a 10M+ registros. Las pantallas usan servicios HTTP con estados de carga, error, vacío y reintento.
+
+Lo que falta o está mal está listado en la sección 11 del `README.md`. Los tres puntos que más afectan al trabajo diario:
+
+1. `backend/sql/schema.sql` **no** es el DDL canónico: son doce líneas que solo crean la tabla `zona`. No usarlo para crear la base.
+2. `src/data/synthetic.ts` y `src/components/Reports.tsx` son código muerto.
+3. `alertas_activas` en `/api/zonas/indicadores` cuenta todas las alertas, no las abiertas.
 
 ## Arquitectura
 
 ```
 Navegador
-  -> Frontend: React 19 + TypeScript + Vite 8 + Tailwind CSS 4   (puerto 8443)
+  -> React 19 + TypeScript + Vite 8 + Tailwind 4        localhost:8443
        -> HTTP/JSON
-  -> Backend: Python + FastAPI + SQLAlchemy 2                     (puerto 8000)
-       -> SQL (psycopg 3)
-  -> PostgreSQL, esquema `energia`
-```
-
-Frontend y backend son servidores independientes. El frontend llama al backend con `fetch` desde `src/services/api.ts`; la URL base sale de `VITE_API_URL` (por defecto `http://127.0.0.1:8000`).
-
-## Estructura del repositorio
-
-```
-.
-├── backend/app/
-│   ├── main.py            App FastAPI, CORS, rutas raíz y /api/test, registra routers
-│   ├── database.py        Engine, SessionLocal, Base declarativa y dependencia get_db()
-│   ├── models/zona.py     Modelo ORM Zona  -> tabla energia.zona
-│   ├── schemas/zona.py    Esquema Pydantic ZonaResponse
-│   └── routers/zonas.py   GET /api/zonas/
-├── backend/sql/schema.sql DDL del esquema energia (crear tablas a mano con psql)
-├── src/
-│   ├── main.tsx           Punto de entrada de React
-│   ├── App.tsx            Layout (sidebar, topbar) y navegación entre páginas
-│   ├── index.css          Tailwind, tokens de tema (@theme) y clases utilitarias propias
-│   ├── services/api.ts    Cliente HTTP hacia el backend (testBackend, obtenerZonas)
-│   ├── data/synthetic.ts  Tipos del dominio y datos simulados
-│   └── components/        Una página por archivo (ver tabla abajo)
-├── .env.example         Variables de entorno de backend y frontend
-├── index.html
-├── package.json           Scripts: dev, build, preview, format (oxfmt)
-├── vite.config.ts         Alias @ -> src, servidor en 0.0.0.0:8443 (strictPort)
-├── tsconfig.json          Modo strict, alias @/*
-└── requirements.txt       Dependencias de Python (UTF-8)
+  -> FastAPI + SQLAlchemy 2                            127.0.0.1:8000
+       -> psycopg 3
+  -> PostgreSQL 16, esquema `energia`
 ```
 
 ## Backend
 
-- **Configuración**: `database.py` carga `.env` con `python-dotenv` y exige `DATABASE_URL`; si falta, lanza `RuntimeError` al importar. La plantilla está en `.env.example`.
-- **CORS**: solo permite `http://localhost:8443` y `http://127.0.0.1:8443`. Si cambia el puerto del frontend hay que actualizar `main.py`.
-- **Endpoints**:
+- **`database.py`** carga `.env` y exige `DATABASE_URL`. Sin ella, `RuntimeError` al importar. La plantilla está en `.env.example`.
+- **Imports relativos** (`from ..database import ...`). El servidor se lanza desde la raíz: `python -m uvicorn backend.app.main:app --reload --port 8000`.
+- **CORS** solo autoriza los puertos 8443 y 5173 en localhost y 127.0.0.1. Cambiar el puerto del frontend exige editar `main.py`, `vite.config.ts` y `.env.example` a la vez.
+- **12 routers** registrados en `main.py`: zonas, servicios, medidores, dashboard, historial_lecturas, analisis_energetico, calendario, calendario_energetico, alertas, tarifas, datamart y generador_hsd. Ambos routers de calendario están registrados porque son recursos distintos: `/api/calendario` alimenta al Dashboard y `/api/calendario-energetico` alimenta la pantalla Calendario.
+- **Sin migraciones ni `create_all`.** El esquema se aplica con `psql` y vive en el data engine.
 
-  | Método | Ruta          | Descripción                                        |
-  |--------|---------------|----------------------------------------------------|
-  | GET    | `/`           | Mensaje de salud                                   |
-  | GET    | `/api/test`   | Prueba de comunicación con el frontend             |
-  | GET    | `/api/zonas/` | Lista de zonas ordenadas por `id_zona`             |
+### Patrón para agregar un recurso
 
-- **Tabla `energia.zona`**: `id_zona` (smallint, PK), `nombre` (varchar 60, único), `tipo_urbano` (varchar 20), `superficie_km2` (numeric 6,3), `factor_socioeconomico` (numeric 4,3). No hay migraciones ni `create_all`: el DDL vive en `backend/sql/schema.sql` y se aplica con `psql`. Si cambias un modelo, actualiza también ese archivo.
-- **Patrón para agregar un recurso**: modelo en `models/`, esquema Pydantic con `from_attributes=True` en `schemas/`, router con `prefix="/api/<recurso>"` en `routers/` y `app.include_router(...)` en `main.py`. Usar el estilo SQLAlchemy 2 (`Mapped`, `mapped_column`, `select()` + `db.scalars()`).
-- Los imports internos son relativos (`from ..database import ...`), por eso el servidor se lanza desde la raíz del repo: `uvicorn backend.app.main:app --reload`.
+1. Modelo en `backend/app/models/` con `__table_args__ = {"schema": "energia"}`, estilo SQLAlchemy 2 (`Mapped`, `mapped_column`).
+2. Esquema Pydantic en `backend/app/schemas/` con `model_config = ConfigDict(from_attributes=True)`.
+3. Router en `backend/app/routers/` con `prefix="/api/<recurso>"`.
+4. `app.include_router(...)` en `main.py`.
+5. Cliente HTTP en `src/services/<recurso>Service.ts`.
+
+### Trampas del esquema
+
+Estas columnas no son las que uno espera. Equivocarse aquí produce pantallas que mienten sin lanzar error.
+
+| Tabla | Realidad |
+|---|---|
+| `alerta` | No hay columna `estado`. Cerrada = `ts_cierre IS NOT NULL`. `resultado` solo admite `'CONFIRMADA'`, `'FALSO_POSITIVO'`, `'NO_CONCLUYENTE'`. `prioridad` va de 1 a 4. |
+| `medidor` | `calidad_enlace` es `SMALLINT` de 50 a 100, en porcentaje. No es una fracción de 0 a 1. `multiplicador` solo admite 1, 20, 40 u 80. |
+| `perfil_carga_horaria` | `tipo_dia` es `CHAR(1)`: `'H'` hábil, `'S'` sábado, `'D'` domingo. No existe `'LABORABLE'` ni `'FESTIVO'`. |
+| `calendario` | El festivo es un booleano `es_festivo`, no un tipo de día. `tipo_dia` sigue siendo H/S/D. |
+| `lectura` | Particionada por mes. PK `(id_medidor, ts)`, sin índice sobre `ts` solo. Filtrar por `id_medidor` es 100 veces más rápido que filtrar por rango de fechas. |
+
+El tipo de cambio `'H'`/`'S'`/`'D'` aparece en tres lugares que deben moverse juntos: `models/perfil_carga_horaria.py`, `models/calendario.py` y el parámetro `tipo_dia` de `analisis_energetico.py`, que traduce `laborable` a un `EXTRACT(ISODOW)` en vez de usar la columna.
+
+### Rendimiento
+
+Con 10.8 millones de lecturas, tres endpoints pasan de 3 segundos: `/api/historial-lecturas` (6.9 s), `/api/historial-lecturas/huecos` (18.2 s) y `/api/zonas/indicadores` (4.6 s). Las causas están en la sección 10 del `README.md`. Antes de "optimizar", medir contra el volumen real: el juego de datos de desarrollo con 276 medidores esconde el problema.
+
+`/api/zonas/indicadores` ejecuta `information_schema` en cada petición para tolerar variantes de columnas. Es deliberado, pero no es un patrón que convenga copiar a endpoints nuevos.
 
 ## Frontend
 
-- **Navegación**: no hay router. `App.tsx` guarda la página activa en `useState<Page>` y renderiza el componente correspondiente. Para agregar una página: extender el tipo `Page`, añadirla a `navItems` y al bloque de renderizado en `<main>`.
-- **Páginas** (`src/components/`):
-
-  | Clave         | Componente           | Fuente de datos                          |
-  |---------------|----------------------|------------------------------------------|
-  | `dashboard`   | `Dashboard.tsx`      | `synthetic.ts` + llamada a `/api/test` (solo `console.log`) |
-  | `zonas`       | `Zones.tsx`          | `synthetic.ts`                           |
-  | `hogares`     | `Households.tsx`     | `synthetic.ts`                           |
-  | `medidores`   | `Meters.tsx`         | `synthetic.ts`                           |
-  | `activos`     | `AssetManagement.tsx`| Datos locales en el componente           |
-  | `alertas`     | `Alerts.tsx`         | `synthetic.ts`                           |
-  | `analitica`   | `Analytics.tsx`      | `synthetic.ts`                           |
-  | `tarifas`     | `Tariffs.tsx`        | Datos locales en el componente           |
-  | `reportes`    | `Reports.tsx`        | Datos locales en el componente           |
-  | `eficiencia`  | `Efficiency.tsx`     | Datos locales en el componente           |
-  | `admin`       | `Admin.tsx`          | Datos locales en el componente           |
-
-  `MapModule.tsx` no es una página: es el mapa Leaflet de Toluca (polígonos de zonas y medidores simulados) que se incrusta en el Dashboard.
-- **Datos sintéticos**: `src/data/synthetic.ts` define los tipos del dominio (`Zone`, `Household`, `Meter`, `Alert`, `ZoneData`, tarifas, estados) y genera 80 hogares, sus medidores, 35 alertas, series mensuales/diarias y `summaryStats`. Las zonas del frontend son `Norte | Centro | Sur | Industrial`; aún no están alineadas con la tabla `energia.zona`.
-- **Librerías**: `recharts` (gráficas), `react-leaflet` / `leaflet` (mapa), `lucide-react` (iconos).
-- **Estilos**: Tailwind 4 vía `@tailwindcss/vite`. Los tokens de color y fuentes están en `@theme` dentro de `index.css`; los componentes además usan muchos colores hex en línea (`text-[#9098b1]`, acento naranja `#ff8a1f`). Hay clases propias como `card`, `blob`, `nav-item`, `gradient-orange`, `pulse-dot`.
-- **Idioma**: toda la interfaz, los nombres de dominio y los mensajes están en español (formato `es-MX`). Mantenerlo así.
+- **Enrutamiento por hash.** `src/navigation.ts` declara `PAGE_ROUTES`, `getPageFromLocation()` y `routeHash()`. `App.tsx` mantiene la página en `useState<Page>`, sincroniza `#/<slug>` con la navegación y escucha `hashchange` para soportar recarga en alojamiento estático. Las páginas se declaran en el mismo archivo con clave, etiqueta, descripción, grupo e icono.
+- **Para agregar una página:** extender el tipo `Page` en `navigation.ts`, añadir la entrada a `NAV_ITEMS`, agregar su slug a `PAGE_ROUTES` y el caso al `switch` de `App.tsx`.
+- **Servicios:** un archivo por recurso en `src/services/`. Los componentes no llaman `fetch` a mano salvo en `Zones.tsx`, que combina catálogo e indicadores en un `Promise.all`.
+- **Componentes base:** `src/components/ui/`. En uso: `Button`, `CommandPalette`, `ThemeMenu`, `Feedback` (esqueletos de carga), `cn` y `PageHeader` (encabezados unificados en las nueve pantallas). Los archivos `Badge`, `Card`, `Drawer`, `Field`, `LiveStatus` y `Tabs` quedaron como heredados sin uso; no eliminarlos sin autorización. No agregar componentes sin uso.
+- **Tema:** `src/theme/ThemeProvider.tsx` con el atributo `data-theme` en `<html>` y tokens en `src/index.css`. Arranca en oscuro.
+- **Librerías:** `recharts` para gráficas, `leaflet` y `react-leaflet` para el mapa, `lucide-react` para iconos.
+- **Idioma:** todo en español, formato `es-MX`. Fechas como `31 de mar de 2026`.
 
 ## Comandos
 
-```bash
-# Backend (desde la raíz del repo, con el entorno virtual activo)
+```powershell
+# Backend
 pip install -r requirements.txt
-uvicorn backend.app.main:app --reload     # http://127.0.0.1:8000, Swagger en /docs
+python -m uvicorn backend.app.main:app --reload --port 8000
 
-psql "postgresql://usuario:password@localhost:5432/simet" -f backend/sql/schema.sql   # crear el esquema (sin "+psycopg")
-
-# Frontend (npm es el gestor oficial; no agregar otros lockfiles)
+# Frontend
 npm install
-npm run dev        # http://localhost:8443
+npm run dev        # http://localhost:8443, strictPort
 npm run build
 npm run format     # oxfmt
 ```
 
-No hay tests, linter ni CI configurados. Para validar cambios de TypeScript usar `npx tsc --noEmit`; para el backend, levantar uvicorn y probar en `/docs`.
+En PowerShell con política de ejecución restringida, `npm` se invoca como `cmd /c npm run dev`.
 
-## Pendientes
+No hay pruebas, linter ni CI. La verificación es `npx tsc --noEmit` (debe terminar con código 0 y sin salida) más `npm run build`, y para el backend, levantar uvicorn y probar en `/docs`.
 
-- El frontend todavía no consume `/api/zonas/`. La función `obtenerZonas()` ya existe en `src/services/api.ts`, pero `Zones.tsx` depende del modelo sintético (`Norte | Centro | Sur | Industrial`, perfiles horarios, consumos), que no coincide con las columnas de `energia.zona`. Antes de conectarla hay que decidir cómo mapear un modelo al otro.
-- No hay datos semilla para `energia.zona`; `backend/sql/schema.sql` solo crea la estructura.
+## Convenciones
 
-## Convenciones para agentes
-
-- Mantener el idioma español en código de dominio, UI y mensajes de commit (el historial está en español).
-- Al conectar una página al backend, crear la función en `src/services/api.ts` y reemplazar gradualmente el import de `synthetic.ts`, conservando los tipos del dominio.
-- No commitear `.env`, `ven/` ni `node_modules/`.
-- Si se cambia el puerto de cualquiera de los servidores, actualizar en conjunto `vite.config.ts`, CORS en `backend/app/main.py`, `VITE_API_URL` en `.env.example`, el README y este archivo.
-- Usar solo npm (`package-lock.json`). Al regenerar `requirements.txt` con `pip freeze` en PowerShell, forzar UTF-8: `pip freeze | Out-File -Encoding utf8 requirements.txt`.
+- Español en interfaz, dominio, mensajes de API y commits. El historial está en español.
+- Al conectar una pantalla al backend, crear el cliente en `src/services/` en vez de ampliar `api.ts`.
+- No commitear `.env`, `ven/`, `node_modules/` ni `dist/`.
+- Solo npm. No introducir otros lockfiles.
+- Al regenerar `requirements.txt` en PowerShell, forzar UTF-8: `pip freeze | Out-File -Encoding utf8 requirements.txt`.
+- No cambiar el DDL local para que coincida con un modelo nuevo. El DDL pertenece al data engine.

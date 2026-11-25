@@ -1,0 +1,70 @@
+{
+  "tipos de servicio": [
+    {
+      "id": 1,
+      "clave": "VIV_UNIF",
+      "nombre": "Vivienda unifamiliar",
+      "categoria": "Residencial"
+    },
+    {
+      "id": 2,
+      "clave": "VIV_DEPTO",
+      "nombre": "Vivienda en departamento",
+      "categoria": "Residencial"
+    },
+    {
+      "id": 3,
+      "clave": "VIV_RES",
+      "nombre": "Vivienda residencial",
+      "categoria": "Residencial"
+    },
+    {
+      "id": 4,
+      "clave": "VIV_SOCIAL",
+      "nombre": "Vivienda social",
+      "categoria": "Residencial"
+    },
+    {
+      "id": 5,
+      "clave": "COM_PEQ",
+      "nombre": "Comercio pequeno",
+      "categoria": "Comercial"
+    },
+    {
+      "id": 6,
+      "clave": "MERCADO",
+      "nombre": "Mercado",
+      "categoria": "Comercial"
+    },
+    {
+      "id": 7,
+      "clave": "EDU_ESC",
+      "nombre": "Escuela",
+      "categoria": "Público"
+    },
+    {
+      "id": 8,
+      "clave": "SAL_CLI",
+      "nombre": "Clinica",
+      "categoria": "Público"
+    },
+    {
+      "id": 9,
+      "clave": "GOB_ADM",
+      "nombre": "Administracion publica",
+      "categoria": "Público"
+    },
+    {
+      "id": 10,
+      "clave": "INFR_BOM",
+      "nombre": "Bombeo hidraulico",
+      "categoria": "Servicio público"
+    },
+    {
+      "id": 11,
+      "clave": "ALUM_VIA",
+      "nombre": "Alumbrado publico",
+      "categoria": "Alumbrado"
+    }
+  ]
+}

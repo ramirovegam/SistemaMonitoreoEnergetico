@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "nombre": "San Mateo Oxtotitlan",
+    "caracter_urbano": "Centro"
+  },
+  {
+    "id": 7,
+    "nombre": "San Jose Guadalupe Otzacatipan",
+    "caracter_urbano": "Popular"
+  },
+  {
+    "id": 13,
+    "nombre": "Sauces",
+    "caracter_urbano": "Residencial Alto"
+  },
+  {
+    "id": 19,
+    "nombre": "San Nicolas Tolentino",
+    "caracter_urbano": "Periférica"
+  }
+]

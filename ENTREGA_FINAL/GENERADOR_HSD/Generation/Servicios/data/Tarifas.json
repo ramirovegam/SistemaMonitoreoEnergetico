@@ -1,0 +1,32 @@
+[
+  {
+    "codigo": "1",
+    "categoria": "Residencial",
+    "descripcion": "Domestico basico"
+  },
+  {
+    "codigo": "1C",
+    "categoria": "Comercial",
+    "descripcion": "Comercio baja tension"
+  },
+  {
+    "codigo": "DAC",
+    "categoria": "Comercial",
+    "descripcion": "Comercio media tension"
+  },
+  {
+    "codigo": "PDBT",
+    "categoria": "Servicio público",
+    "descripcion": "Servicios generales baja tension"
+  },
+  {
+    "codigo": "GDBT",
+    "categoria": "Público",
+    "descripcion": "Gobierno baja tension"
+  },
+  {
+    "codigo": "DIST",
+    "categoria": "Alumbrado",
+    "descripcion": "Alumbrado publico"
+  }
+]

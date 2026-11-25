@@ -28,6 +28,8 @@ class CalendarioEnergeticoResponse(BaseModel):
     anio: int
     mes_inicio: int
     mes_fin: int
+    anio_min: int | None
+    anio_max: int | None
     resumen: ResumenCalendario
     dias: list[DiaCalendario]
 

@@ -28,13 +28,39 @@ DIAS = {
 
 @router.get("", response_model=CalendarioEnergeticoResponse)
 def obtener_calendario(
-    anio: int = Query(default=2026, ge=2000, le=2100),
+    anio: int | None = Query(default=None),
     mes_inicio: int = Query(default=1, ge=1, le=12),
-    mes_fin: int = Query(default=3, ge=1, le=12),
+    mes_fin: int = Query(default=12, ge=1, le=12),
     db: Session = Depends(get_db),
 ):
     if mes_inicio > mes_fin:
         raise HTTPException(422, "mes_inicio no puede ser mayor que mes_fin")
+
+    limites = db.execute(
+        text("""
+            SELECT
+                EXTRACT(YEAR FROM min(fecha))::int AS anio_min,
+                EXTRACT(YEAR FROM max(fecha))::int AS anio_max
+            FROM energia.calendario
+        """),
+    ).mappings().one()
+
+    anio_min = limites["anio_min"]
+    anio_max = limites["anio_max"]
+    if anio is None:
+        anio = anio_max if anio_max is not None else date.today().year
+    elif (
+        anio_min is not None
+        and anio_max is not None
+        and not (anio_min <= anio <= anio_max)
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No hay registros para el año {anio}. "
+                f"Rango disponible: {anio_min}-{anio_max}."
+            ),
+        )
 
     rows = db.execute(
         text("""
@@ -74,6 +100,8 @@ def obtener_calendario(
         "anio": anio,
         "mes_inicio": mes_inicio,
         "mes_fin": mes_fin,
+        "anio_min": limites["anio_min"],
+        "anio_max": limites["anio_max"],
         "resumen": dict(summary),
         "dias": [dict(row) for row in rows],
     }

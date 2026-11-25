@@ -15,6 +15,8 @@ from ..schemas.dashboard import (
     ConsumoZonaResponse,
     DashboardIndicadoresResponse,
     DashboardResponse,
+    PerfilZonaResponse,
+    PuntoSerieResponse,
 )
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
@@ -37,10 +39,14 @@ def obtener_dashboard(
     if fecha is None:
         fecha = db.scalar(select(func.max(Calendario.fecha)))
     elif db.scalar(select(Calendario.fecha).where(Calendario.fecha == fecha)) is None:
-        raise HTTPException(status_code=404, detail=f"La fecha {fecha} no existe en el calendario")
+        raise HTTPException(
+            status_code=404, detail=f"La fecha {fecha} no existe en el calendario"
+        )
 
     if fecha is None:
-        raise HTTPException(status_code=404, detail="No existen fechas en el calendario")
+        raise HTTPException(
+            status_code=404, detail="No existen fechas en el calendario"
+        )
 
     inicio, fin = rango_dia(fecha)
     inicio_anterior = inicio - timedelta(days=1)
@@ -60,12 +66,15 @@ def obtener_dashboard(
         .where(Lectura.ts >= inicio, Lectura.ts < fin, *zona_filtros)
     ).one()
 
-    consumo_anterior = db.scalar(
-        select(func.coalesce(func.sum(Lectura.consumo_real_kwh), 0))
-        .join(Medidor, Lectura.id_medidor == Medidor.id_medidor)
-        .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
-        .where(Lectura.ts >= inicio_anterior, Lectura.ts < inicio, *zona_filtros)
-    ) or 0
+    consumo_anterior = (
+        db.scalar(
+            select(func.coalesce(func.sum(Lectura.consumo_real_kwh), 0))
+            .join(Medidor, Lectura.id_medidor == Medidor.id_medidor)
+            .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
+            .where(Lectura.ts >= inicio_anterior, Lectura.ts < inicio, *zona_filtros)
+        )
+        or 0
+    )
 
     total_medidores, activos, desconectados, calidad = db.execute(
         select(
@@ -107,13 +116,84 @@ def obtener_dashboard(
         for fila in filas_zona
     ]
 
+    # Perfil horario del día seleccionado para las cinco zonas con mayor demanda.
+    top_zonas = list(
+        db.scalars(
+            select(Zona.id_zona)
+            .join(Servicio, Zona.id_zona == Servicio.id_zona)
+            .join(Medidor, Servicio.id_servicio == Medidor.id_servicio)
+            .join(Lectura, Medidor.id_medidor == Lectura.id_medidor)
+            .where(Lectura.ts >= inicio, Lectura.ts < fin, *zona_filtros)
+            .group_by(Zona.id_zona)
+            .order_by(desc(func.sum(Lectura.consumo_real_kwh)))
+            .limit(5)
+        ).all()
+    )
+
+    perfil_horario_zonas: list[PerfilZonaResponse] = []
+    if top_zonas:
+        periodo_hora = func.date_trunc("hour", Lectura.ts).label("periodo")
+        filas_perfil = db.execute(
+            select(
+                periodo_hora,
+                Zona.id_zona,
+                Zona.nombre,
+                func.coalesce(func.sum(Lectura.consumo_real_kwh), 0),
+            )
+            .join(Medidor, Lectura.id_medidor == Medidor.id_medidor)
+            .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
+            .join(Zona, Servicio.id_zona == Zona.id_zona)
+            .where(
+                Lectura.ts >= inicio,
+                Lectura.ts < fin,
+                Zona.id_zona.in_(top_zonas),
+            )
+            .group_by(periodo_hora, Zona.id_zona, Zona.nombre)
+            .order_by(periodo_hora, Zona.nombre)
+        ).all()
+        perfil_horario_zonas = [
+            PerfilZonaResponse(
+                periodo=fila[0],
+                id_zona=fila[1],
+                zona_nombre=fila[2],
+                consumo_kwh=float(fila[3]),
+            )
+            for fila in filas_perfil
+        ]
+
+    # Serie diaria de los 14 días que terminan en la fecha seleccionada.
+    inicio_serie = inicio - timedelta(days=13)
+    periodo_dia = func.date_trunc("day", Lectura.ts).label("periodo")
+    filas_serie = db.execute(
+        select(
+            periodo_dia,
+            func.coalesce(func.sum(Lectura.consumo_real_kwh), 0),
+            func.count(Lectura.ts),
+        )
+        .join(Medidor, Lectura.id_medidor == Medidor.id_medidor)
+        .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
+        .where(Lectura.ts >= inicio_serie, Lectura.ts < fin, *zona_filtros)
+        .group_by(periodo_dia)
+        .order_by(periodo_dia)
+    ).all()
+    consumo_diario_mes = [
+        PuntoSerieResponse(
+            periodo=fila[0],
+            consumo_kwh=float(fila[1]),
+            lecturas=int(fila[2]),
+        )
+        for fila in filas_serie
+    ]
+
     actual = float(agregado_dia[0])
     anterior = float(consumo_anterior)
     comparacion = ComparacionPeriodoResponse(
         periodo_actual_kwh=actual,
         periodo_anterior_kwh=anterior,
         diferencia_kwh=actual - anterior,
-        variacion_porcentual=((actual - anterior) / anterior * 100) if anterior else None,
+        variacion_porcentual=((actual - anterior) / anterior * 100)
+        if anterior
+        else None,
         inicio_actual=inicio,
         fin_actual=fin,
         inicio_anterior=inicio_anterior,
@@ -133,15 +213,17 @@ def obtener_dashboard(
         medidores_activos=int(activos),
         medidores_desconectados=int(desconectados),
         alertas_activas=0,
-        calidad_promedio_datos=float(calidad) * 100 if float(calidad) <= 1 else float(calidad),
+        calidad_promedio_datos=float(calidad) * 100
+        if float(calidad) <= 1
+        else float(calidad),
     )
 
     return DashboardResponse(
         fecha_referencia=inicio,
         indicadores=indicadores,
-        perfil_horario_zonas=[],
+        perfil_horario_zonas=perfil_horario_zonas,
         ultimas_24_horas=[],
-        consumo_diario_mes=[],
+        consumo_diario_mes=consumo_diario_mes,
         consumo_por_zona=consumo_por_zona,
         comparacion_periodo=comparacion,
         distribucion_por_instalacion=[],

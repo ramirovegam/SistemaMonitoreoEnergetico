@@ -17,3 +17,6 @@ dist/
 
 # VS Code
 .vscode/
+
+# Respaldos locales, no forman parte de la entrega
+*.bak_*

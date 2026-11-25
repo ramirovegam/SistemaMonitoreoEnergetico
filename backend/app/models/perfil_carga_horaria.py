@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import CHAR, ForeignKey, Numeric, SmallInteger
+from sqlalchemy import ForeignKey, Numeric, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
@@ -13,20 +13,11 @@ class PerfilCargaHoraria(Base):
     id_tipo_servicio: Mapped[int] = mapped_column(
         SmallInteger,
         ForeignKey("energia.tipo_servicio.id_tipo_servicio"),
-        primary_key=True
+        primary_key=True,
     )
 
-    tipo_dia: Mapped[str] = mapped_column(
-        CHAR(1),
-        primary_key=True
-    )
+    tipo_dia: Mapped[str] = mapped_column(String(12), primary_key=True)
 
-    hora: Mapped[int] = mapped_column(
-        SmallInteger,
-        primary_key=True
-    )
+    hora: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
 
-    factor: Mapped[Decimal] = mapped_column(
-        Numeric(5, 4),
-        nullable=False
-    )
+    factor: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
