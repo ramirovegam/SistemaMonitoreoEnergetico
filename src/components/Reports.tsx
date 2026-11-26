@@ -231,7 +231,7 @@ export default function Reports() {
                 <div className="progress-bar">
                   <div className="progress-fill" style={{
                     width: `${inst.eficiencia}%`,
-                    background: inst.eficiencia >= 90 ? "var(--color-success)" : inst.eficiencia >= 80 ? "var(--color-warning)" : "var(--color-danger)",
+                    background: inst.eficiencia >= 90 ? "var(--color-success-fill)" : inst.eficiencia >= 80 ? "var(--color-warning-fill)" : "var(--color-danger-fill)",
                   }} />
                 </div>
               </div>

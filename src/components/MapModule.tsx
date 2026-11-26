@@ -571,21 +571,27 @@ export default function MapModule({ onZonaSeleccionada }: MapModuleProps) {
                 </p>
               </div>
 
-              <div className="mt-3 flex justify-between border-b py-2 text-xs">
-                <span className="text-[var(--color-muted)]">FID</span>
-                <strong>{zonaSeleccionada.fid}</strong>
+              <div className="mt-3 flex items-start justify-between gap-4 border-b py-2 text-xs">
+                <span className="shrink-0 text-[var(--color-muted)]">FID</span>
+                <strong className="min-w-0 break-words text-right">
+                  {zonaSeleccionada.fid}
+                </strong>
               </div>
-              <div className="flex justify-between border-b py-2 text-xs">
-                <span className="text-[var(--color-muted)]">Zona</span>
-                <strong>{zonaSeleccionada.Delegacion}</strong>
+              <div className="flex items-start justify-between gap-4 border-b py-2 text-xs">
+                <span className="shrink-0 text-[var(--color-muted)]">Zona</span>
+                <strong className="min-w-0 break-words text-right">
+                  {zonaSeleccionada.Delegacion}
+                </strong>
               </div>
-              <div className="flex justify-between border-b py-2 text-xs">
-                <span className="text-[var(--color-muted)]">Precisión</span>
-                <strong>{zonaSeleccionada.precision ?? "Sin especificar"}</strong>
+              <div className="flex items-start justify-between gap-4 border-b py-2 text-xs">
+                <span className="shrink-0 text-[var(--color-muted)]">Precisión</span>
+                <strong className="min-w-0 break-words text-right">
+                  {zonaSeleccionada.precision ?? "Sin especificar"}
+                </strong>
               </div>
-              <div className="flex items-start justify-between gap-3 py-2 text-xs">
+              <div className="flex items-start justify-between gap-4 py-2 text-xs">
                 <span className="shrink-0 text-[var(--color-muted)]">Fuente</span>
-                <strong className="text-right">
+                <strong className="min-w-0 break-words text-right">
                   {zonaSeleccionada.fuente ?? "GeoJSON Toluca"}
                 </strong>
               </div>

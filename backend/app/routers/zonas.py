@@ -82,6 +82,10 @@ def listar_indicadores_por_zona(
         columnas_alerta,
         ["estado", "estatus"],
     )
+    columna_cierre_alerta = _primera(
+        columnas_alerta,
+        ["ts_cierre", "fecha_cierre", "cerrada_en"],
+    )
 
     if columna_retiro:
         activo_sql = f"m.{columna_retiro} IS NULL"
@@ -104,12 +108,18 @@ def listar_indicadores_por_zona(
         if columna_fecha_alerta
         else ""
     )
-    alertas_activas_sql = (
-        f"count(a.id_alerta) FILTER (WHERE lower(coalesce(a.{columna_estado_alerta}::text, '')) "
-        "IN ('activa', 'activo', 'abierta', 'pendiente'))::integer"
-        if columna_estado_alerta
-        else "count(a.id_alerta)::integer"
-    )
+    # energia.alerta no tiene columna estado: abierta equivale a ts_cierre IS NULL.
+    if columna_cierre_alerta:
+        alertas_activas_sql = (
+            f"count(a.id_alerta) FILTER (WHERE a.{columna_cierre_alerta} IS NULL)::integer"
+        )
+    elif columna_estado_alerta:
+        alertas_activas_sql = (
+            f"count(a.id_alerta) FILTER (WHERE lower(coalesce(a.{columna_estado_alerta}::text, '')) "
+            "IN ('activa', 'activo', 'abierta', 'pendiente'))::integer"
+        )
+    else:
+        alertas_activas_sql = "count(a.id_alerta)::integer"
 
     referencia = db.scalar(text("SELECT max(ts) FROM energia.lectura")) or datetime.now()
     inicio, fin, inicio_anterior = _rango_mes(mes, referencia)

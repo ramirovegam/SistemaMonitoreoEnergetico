@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routers.alertas import router as alertas_router
 from .routers.analisis_energetico import router as analisis_energetico_router
+from .routers.asistente import router as asistente_router
 from .routers.calendario import router as calendario_router
 from .routers.calendario_energetico import (
     router as calendario_energetico_router,
@@ -50,6 +51,7 @@ app.include_router(alertas_router)
 app.include_router(tarifas_router)
 app.include_router(datamart_router)
 app.include_router(generador_hsd_router)
+app.include_router(asistente_router)
 
 
 @app.get("/", tags=["Sistema"])

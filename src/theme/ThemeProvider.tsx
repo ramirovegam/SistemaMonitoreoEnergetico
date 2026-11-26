@@ -19,10 +19,10 @@ export const ACCENTS: Array<{
   swatch: string;
 }> = [
   { id: "orange", label: "Naranja", swatch: "var(--swatch-orange)" },
-  { id: "lime", label: "Lima", swatch: "var(--swatch-lime)" },
-  { id: "cyan", label: "Cian", swatch: "var(--swatch-cyan)" },
+  { id: "lime", label: "Esmeralda", swatch: "var(--swatch-emerald)" },
+  { id: "teal", label: "Azul eléctrico", swatch: "var(--swatch-blue)" },
   { id: "violet", label: "Violeta", swatch: "var(--swatch-violet)" },
-  { id: "teal", label: "Verde azulado", swatch: "var(--swatch-teal)" },
+  { id: "cyan", label: "Turquesa", swatch: "var(--swatch-cyan)" },
 ];
 
 export const THEME_MODES: Array<{

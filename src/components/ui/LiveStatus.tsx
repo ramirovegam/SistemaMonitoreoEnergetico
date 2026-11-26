@@ -30,16 +30,16 @@ export function LiveStatus({
     >
       <span className="relative flex h-2 w-2" aria-hidden="true">
         {!state.isPaused && !hasError ? (
-          <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+          <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-success-fill opacity-60" />
         ) : null}
         <span
           className={cn(
             "relative inline-flex h-2 w-2 rounded-full",
             hasError
-              ? "bg-danger"
+              ? "bg-danger-fill"
               : state.isPaused
-                ? "bg-warning"
-                : "bg-success",
+                ? "bg-warning-fill"
+                : "bg-success-fill",
           )}
         />
       </span>

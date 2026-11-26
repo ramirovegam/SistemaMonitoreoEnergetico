@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   BookOpen,
+  Bot,
   CalendarDays,
   DollarSign,
   Home,
@@ -20,7 +21,8 @@ export type Page =
   | "historial-lecturas"
   | "calendario-energetico"
   | "alertas"
-  | "tarifas";
+  | "tarifas"
+  | "asistente";
 
 export type NavGroup = "Operación" | "Análisis" | "Administración";
 
@@ -96,6 +98,13 @@ export const NAV_ITEMS: NavItem[] = [
     group: "Administración",
     icon: DollarSign,
   },
+  {
+    key: "asistente",
+    label: "Asistente",
+    description: "Consultas informativas y proyecciones sobre datos reales",
+    group: "Análisis",
+    icon: Bot,
+  },
 ];
 
 export const NAV_GROUPS: NavGroup[] = ["Operación", "Análisis", "Administración"];
@@ -114,6 +123,7 @@ export const PAGE_ROUTES: Record<Page, string> = {
   "calendario-energetico": "calendario",
   alertas: "alertas",
   tarifas: "tarifas",
+  asistente: "asistente",
 };
 
 function normalizarRuta(value: string): string {
@@ -147,4 +157,16 @@ export function routeHash(page: Page): string {
 
 export function getPageLabel(page: Page): string {
   return NAV_ITEMS.find((item) => item.key === page)?.label ?? "SIMET";
+}
+
+/** El breadcrumb nombra la vista concreta, no el grupo al que pertenece. */
+const PAGE_BREADCRUMBS: Partial<Record<Page, string>> = {
+  dashboard: "Resumen del sistema",
+  "analisis-energetico": "Curva energética",
+  "historial-lecturas": "Historial de lecturas",
+  "calendario-energetico": "Calendario energético",
+};
+
+export function getPageBreadcrumb(page: Page): string {
+  return PAGE_BREADCRUMBS[page] ?? getPageLabel(page);
 }

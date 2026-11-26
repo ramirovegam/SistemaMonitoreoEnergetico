@@ -5,6 +5,7 @@ from sqlalchemy import case, desc, func, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..models.alerta import Alerta
 from ..models.calendario import Calendario
 from ..models.lectura import Lectura
 from ..models.medidor import Medidor
@@ -86,6 +87,16 @@ def obtener_dashboard(
         .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
         .where(*zona_filtros)
     ).one()
+
+    alertas_activas = (
+        db.scalar(
+            select(func.count(Alerta.id_alerta))
+            .join(Medidor, Alerta.id_medidor == Medidor.id_medidor)
+            .join(Servicio, Medidor.id_servicio == Servicio.id_servicio)
+            .where(Alerta.ts_cierre.is_(None), *zona_filtros)
+        )
+        or 0
+    )
 
     filas_zona = db.execute(
         select(
@@ -212,7 +223,7 @@ def obtener_dashboard(
         total_medidores=int(total_medidores),
         medidores_activos=int(activos),
         medidores_desconectados=int(desconectados),
-        alertas_activas=0,
+        alertas_activas=int(alertas_activas),
         calidad_promedio_datos=float(calidad) * 100
         if float(calidad) <= 1
         else float(calidad),

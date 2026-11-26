@@ -17,7 +17,7 @@ const tones: Record<BadgeTone, string> = {
   danger: "bg-danger-soft text-danger-strong border-danger-soft",
   info: "bg-info-soft text-info-strong border-info-soft",
   neutral: "bg-surface-3 text-muted border-border",
-  violet: "bg-accent-soft text-accent-strong border-accent-soft-2",
+  violet: "bg-violet-soft text-violet-strong border-violet-soft",
 };
 
 export function Badge({

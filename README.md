@@ -336,7 +336,7 @@ Ninguno rompe la aplicación; el panel responde. Pero conviene saberlo antes de 
 
 **`testBackend()` en `src/services/api.ts` apunta a `/api/test`, que no existe.** La ruta real es `/health`. La función no la importa nadie.
 
-**`alertas_activas` en `/api/zonas/indicadores` cuenta todas las alertas, no solo las abiertas.** El router busca una columna `estado` en `energia.alerta` que no existe en el esquema canónico; al no encontrarla, cae al conteo total. Verificado contra la base: una zona con 2 alertas en marzo y 0 abiertas reporta 2 activas. La corrección es derivar el estado de `ts_cierre`, como ya hace `/api/alertas`.
+**`alertas_activas` quedó corregido en `/api/zonas/indicadores` y `/api/dashboard`.** Ambos derivan el estado de `ts_cierre IS NULL`, igual que `/api/alertas`, en vez de buscar una columna `estado` inexistente o devolver cero fijo. Verificado contra la base: `/api/zonas/indicadores?mes=3` informa 284 abiertas de 5,311 alertas de marzo, y `/api/dashboard` informa 692 abiertas en total.
 
 **`mes` en `/api/zonas/indicadores` solo acepta 1, 2 y 3.** Coincide con el periodo simulado, pero si el data engine amplía el rango de fechas, el endpoint hay que ajustarlo.
 
@@ -408,3 +408,96 @@ La rama `final` contiene el paquete completo de entrega en `ENTREGA_FINAL`: docu
 El índice del paquete está en `ENTREGA_FINAL/INDICE_ENTREGA.md`. La auditoría vigente es 29 `SI` y 0 `NO`. La única tarea abierta es la captura de la autocalificación individual de 6.2.
 
 La presentación de defensa es la copia corregida de Canva `DAHb7o_LRYc`. El PPTX incluido se conserva intacto como respaldo. Metabase no quedó desplegado: el criterio de BI se cierra con el reporte y el archivo PBIX.
+
+---
+
+## 15. Asistente plus con LLM
+
+Módulo informativo y desacoplado. El LLM solo redacta; los números los calcula `backend/app/services/estadisticas.py` con `SELECT` contra las vistas `datamart.dm_*` y tablas `energia` permitidas. El modelo no recibe la conexión a la base: elige herramientas declaradas y Python ejecuta la consulta validada. El usuario puede pedir SQL de solo lectura mediante `ejecutar_sql_lectura`; están prohibidas la escritura, los comentarios, las múltiples sentencias y cualquier cambio de tablas o esquema. No se agregó ninguna dependencia nueva de Python: el cliente usa `urllib.request` de la biblioteca estándar.
+
+### 15.1 Variables de entorno
+
+Copiar de `.env.example` a `.env`. Nunca subir `.env` ni credenciales reales.
+
+| Variable | Uso |
+|---|---|
+| `ASISTENTE_DATABASE_URL` | Conexión obligatoria del asistente con rol de solo lectura. No existe fallback a `DATABASE_URL`. |
+| `ASISTENTE_STATEMENT_TIMEOUT_MS` | Tiempo máximo por consulta. Valor por defecto `30000`; `dm_validacion_integridad` tardó 20.5 s en medición real. |
+| `ASISTENTE_RATE_LIMIT` / `ASISTENTE_RATE_WINDOW` | Límite por IP y sesión. Por defecto 30 consultas por 60 s. |
+| `LLM_PROVIDER` | `openai`, `groq`, `ollama` o un proveedor compatible con `/chat/completions`. |
+| `LLM_MODEL` | Modelo a invocar. Para Ollama: `qwen2.5:3b`. |
+| `LLM_API_KEY` | Secreto del proveedor. Vacío solo es válido con base loopback; si no, desactiva la redacción. |
+| `LLM_BASE_URL` | Base de la API compatible. Opcional para OpenAI, Groq y Ollama. |
+| `LLM_TIMEOUT` | Segundos máximos por llamada al modelo. Por defecto `25`; rango permitido 5–180. |
+
+Con `LLM_PROVIDER=ollama` el backend usa `http://127.0.0.1:11434/v1`. El plan se resuelve siempre en local; Ollama solo redacta el payload verificado. Las cifras siguen saliendo de PostgreSQL y las definiciones de `Base de Conocimiento SIMET`.
+
+El rol de solo lectura se crea con `docs/sql/asistente_readonly.sql`. Concede `USAGE` y `SELECT` en `energia` y `datamart`, quita `CREATE` y no toca otros esquemas.
+
+### 15.2 Endpoints
+
+- `GET /api/asistente/sugerencias`: seis atajos opcionales.
+- `POST /api/asistente/consultar`: cuerpo `{"pregunta": "...", "historial": [...]}`; pregunta y cada mensaje del historial tienen entre 1 y 800 caracteres. Se conservan los últimos seis turnos, es decir doce mensajes.
+
+Cada respuesta trae `respuesta`, `fuentes`, `formulas_aplicadas`, `datos_visualizacion`, `modo`, `origen` y `aviso`, más los campos de compatibilidad `fuente`, `metodo`, `datos` y `grafica`. Las consultas repetidas se cachean 10 minutos en memoria.
+
+Saludos, capacidades, definiciones del glosario y consultas que nombran una fórmula, semilla, integridad o alertas abiertas se resuelven sin llamar al proveedor: `origen` es `local`. Las respuestas conceptuales citan `Base de Conocimiento SIMET` y nunca exponen rutas internas como `payload.resultado.respuesta_base`. Las consultas con datos usan el proveedor solo para redactar un payload ya verificado; si el proveedor no está configurado o falla, `origen` cambia a `local` y el endpoint sigue funcionando.
+
+El navegador guarda los últimos seis turnos en `localStorage` con la clave `simet-asistente-historial-v1`. Al cargar se sanitan los roles, el número de mensajes y los 800 caracteres por mensaje. PostgreSQL permanece de solo lectura para el asistente.
+
+### 15.2.1 Reglas de honestidad y SQL verificable
+
+- `consultar_agregados` devuelve promedio, suma, mínimo, máximo y conteo sobre columnas permitidas de `datamart.dm_kpi_diarios`, con ventana opcional de 7, 15 o 30 días contada desde la última fecha observada.
+- `ejecutar_sql_lectura` acepta una sola sentencia `SELECT` o `WITH` de hasta 2,000 caracteres, sin comentarios y sin palabras de escritura; devuelve hasta 200 filas y cita los esquemas detectados.
+- SIMET no almacena pronósticos oficiales. `proyeccion_tendencia` produce una estimación derivada con banda de predicción y siempre añade `aviso`. Si preguntan por un pronóstico oficial o registrado, la respuesta es local y usa `SIN_PRONOSTICO_OFICIAL`.
+- «Pronóstico», «predicción» y «proyección» sin calificador activan `proyeccion_tendencia`. Un mes como «abril» se traduce a 30 días desde la última fecha observada, no a datos de abril medidos.
+- Las fórmulas nuevas se revisan y registran en `backend/app/services/formulas.py`. No se extraen de internet ni se ejecutan en caliente.
+- Las preguntas básicas de hora y fecha se resuelven en local con `respuesta_reloj`, sin llamar al proveedor. La cita es `reloj local del servidor SIMET`; no se presentan como datos del dominio. La identidad se responde con `respuesta_identidad` y la cita es `Base de Conocimiento SIMET`. Una pregunta combinada, como `Hola, dime quien eres y que hora es?`, se responde en un solo turno con ambas fuentes.
+- El corpus operativo editable está en `docs/base_conocimiento/CORPUS_OPERATIVO_SIMET.md`. El archivo `.docx` se regenera desde ese Markdown; no se edita a mano. No se generan ni copian PDFs sin petición explícita.
+- Los PDFs de SIMET se eliminaron el 25/11/2026 para liberar espacio. Quedan cinco respaldos `.pdf.bak_*`; no se borraron porque no terminan en `.pdf` y la confirmación cubrió solo los 30 archivos `.pdf`.
+- La base de datos es la fuente de cifras; la `Base de Conocimiento SIMET` solo contiene definiciones. El plan local reconoce «métricas de <zona>» y `consultar_zonas` filtra la zona antes de agregar lecturas y eventos. Los parámetros opcionales de zona usan `CAST(:zona AS TEXT)` para evitar el error `AmbiguousParameter` de psycopg.
+- En `modo=datos`, las citas son tablas verificadas. `_corregir_citas` elimina cualquier mención a `Base de Conocimiento SIMET` añadida por el redactor.
+- Las respuestas de zonas indican `Periodo: Acumulado enero–marzo de 2026 (90 días). No es promedio mensual.` La cifra es el acumulado de lecturas y eventos, no un promedio. El promedio mensual no está almacenado.
+- La gráfica de zonas compara consumo total contra consumo reportado. No mezcla `kwh_desviados` con consumo porque su escala es tres órdenes menor. Con una sola zona, el título nombra la zona y el subtítulo muestra el periodo.
+
+### 15.3 Prueba rápida
+
+```powershell
+$env:PYTHONPATH='.'
+ven\Scripts\python.exe -m py_compile backend/app/services/parametros.py backend/app/services/formulas.py backend/app/services/conocimiento_simet.py backend/app/services/estadisticas.py backend/app/services/llm.py backend/app/schemas/asistente.py backend/app/routers/asistente.py
+cmd /c npx tsc --noEmit
+cmd /c npm run build
+ven\Scripts\python.exe -m uvicorn backend.app.main:app --port 8000
+```
+
+Con la API levantada:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/asistente/sugerencias | Select-Object intent,pregunta
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/asistente/consultar -ContentType 'application/json' -Body '{"pregunta":"¿Cuántas lecturas hay y con qué semilla se generó?"}' | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/asistente/consultar -ContentType 'application/json' -Body '{"pregunta":"¿Cuál es la proyección de consumo para los próximos 7 días?"}' | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/asistente/consultar -ContentType 'application/json' -Body '{"pregunta":"¿Cuál es el promedio de consumo en 7 días?"}' | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/asistente/consultar -ContentType 'application/json' -Body '{"pregunta":"Ejecuta este SQL: SELECT fecha, consumo_total_kwh FROM datamart.dm_kpi_diarios ORDER BY fecha DESC LIMIT 3"}' | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/asistente/consultar -ContentType 'application/json' -Body '{"pregunta":"¿Tienes un pronóstico oficial?"}' | ConvertTo-Json -Depth 6
+```
+
+La interfaz queda en `#/asistente`. Los botones rápidos son atajos opcionales; el campo acepta preguntas abiertas sobre SIMET.
+
+### 15.4 Consumo de tokens y documentación
+
+El redactor dejó de recibir el glosario completo: usa `REDACTOR_REDUCIDO`, de 460 caracteres, y un resumen del payload de hasta 4,000 caracteres con cinco filas por herramienta. Las respuestas locales no consumen tokens del proveedor. Tiempos medidos después del cambio: `Hola` 67 ms, `¿Qué puedes hacer?` 27 ms, `¿Qué significa Tarifa DAC?` 17 ms. Las consultas con datos siguen usando dos llamadas como máximo: una de planeación solo cuando la pregunta no es nominal, y una de redacción.
+
+El manual de uso, la guía rápida y 21 capturas están en `docs/manual_usuario`:
+
+- `MANUAL_USUARIO.md`: fuente editable.
+- `MANUAL_DE_USO_Y_GUIA_DE_USUARIO_SIMET.docx` y `.pdf`: entregables en Arial 12, blanco y negro, sin portada.
+- `capturas/`: nueve pantallas, estados del asistente, vistas móviles y desplazamiento intermedio de las pantallas largas.
+- `auditoria_visual.json`: métricas de ancho, desbordamiento y emulación de movimiento reducido.
+
+No había servidor MCP `chrome-devtools` disponible. La revisión visual se hizo con Microsoft Edge 158 en modo headless controlado por CDP, en 1440x900 y 390x844x2. No se registró desbordamiento horizontal en las vistas revisadas y `prefers-reduced-motion` respondió `true` bajo emulación.
+
+### 15.5 Paleta de acento del tema claro
+
+Los tokens de `src/index.css` usan cinco señales vibrantes: naranja `#FF7A00` (principal, igual al logo), verde `#00C853`, azul `#0088FF`, violeta `#7C3AED` y turquesa `#00B8D9`. Alimentan `--chart-1` a `--chart-5`, el selector de acento, las barras de progreso y los rellenos de estado (`--success-fill`, `--warning-fill`, `--info-fill`, `--violet-fill`). Las variantes de texto sobre fondos claros son `#A84A00`, `#0E7A43`, `#005BB5`, `#5B21B6` y `#006B82`, todas con contraste AA verificado. El naranja, verde, azul y turquesa llevan texto `--ink` encima; el violeta lleva blanco. El rojo de `--danger-fill` se conserva por semántica de error y no forma parte de la paleta de datos.
+
+Los identificadores internos del selector siguen siendo `orange`, `lime`, `cyan`, `violet` y `teal` para no romper preferencias guardadas en `localStorage`; las etiquetas visibles son Naranja, Esmeralda, Azul eléctrico, Violeta y Turquesa.

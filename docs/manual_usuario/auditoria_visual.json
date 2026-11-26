@@ -1,0 +1,144 @@
+{
+  "escritorio": {
+    "resumen": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 3717
+    },
+    "zonas": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 6436
+    },
+    "servicios": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 4015
+    },
+    "medidores": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 2707
+    },
+    "alertas": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 500653
+    },
+    "analisis": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 452964
+    },
+    "lecturas": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 457939
+    },
+    "calendario": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 2834
+    },
+    "tarifas": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 1124
+    },
+    "asistente_vacio": {
+      "ancho": 1416,
+      "alto": 808,
+      "scroll_ancho": 1416,
+      "scroll_alto": 808,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 1381
+    }
+  },
+  "movil": {
+    "asistente": {
+      "ancho": 390,
+      "alto": 844,
+      "scroll_ancho": 390,
+      "scroll_alto": 844,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 1838
+    },
+    "resumen": {
+      "ancho": 390,
+      "alto": 844,
+      "scroll_ancho": 390,
+      "scroll_alto": 844,
+      "desborda": false,
+      "reduce_motion": false,
+      "cargando": 0,
+      "texto": 3442
+    }
+  },
+  "capturas": [
+    "01_resumen.png 1416x808 @1",
+    "02_zonas.png 1416x808 @1",
+    "03_servicios.png 1416x808 @1",
+    "04_medidores.png 1416x808 @1",
+    "05_alertas.png 1416x808 @1",
+    "06_analisis.png 1416x808 @1",
+    "07_lecturas.png 1416x808 @1",
+    "08_calendario.png 1416x808 @1",
+    "09_tarifas.png 1416x808 @1",
+    "10_asistente_vacio.png 1416x808 @1",
+    "11_asistente_conceptual.png 1416x808 @1",
+    "12_asistente_datos.png 1416x808 @1",
+    "13_asistente_historial.png 1416x808 @1",
+    "14_asistente_movil.png 390x844 @2",
+    "15_resumen_movil.png 390x844 @2"
+  ],
+  "reduce_motion_activo": true
+}

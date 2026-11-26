@@ -21,6 +21,7 @@ import {
 import {
   NAV_GROUPS,
   NAV_ITEMS,
+  getPageBreadcrumb,
   getPageFromLocation,
   getPageLabel,
   routeHash,
@@ -43,6 +44,7 @@ const ReadingHistory = lazy(() => import("./components/ReadingHistory"));
 const EnergyCalendar = lazy(() => import("./components/EnergyCalendar"));
 const Alerts = lazy(() => import("./components/Alerts"));
 const Tariffs = lazy(() => import("./components/Tariffs"));
+const Asistente = lazy(() => import("./components/Asistente"));
 
 interface NavigateDetail {
   page?: Page;
@@ -93,7 +95,7 @@ function NavButton({ item, active, collapsed = false, badge, onClick }: NavButto
       ) : null}
       {collapsed && badge !== undefined && badge > 0 ? (
         <span
-          className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-surface"
+          className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-fill ring-2 ring-surface"
           aria-hidden="true"
         />
       ) : null}
@@ -177,45 +179,56 @@ function ApiStatusCard({
   hasError: boolean;
   collapsed: boolean;
 }) {
+  const etiqueta = hasError ? "API con incidencias" : "API operativa";
+  const detalle = hasError
+    ? "Sin respuesta del servicio de datos"
+    : `${alertCount} alerta${alertCount === 1 ? "" : "s"} activa${alertCount === 1 ? "" : "s"}`;
+
   if (collapsed) {
     return (
       <div className="flex justify-center px-3 py-3">
         <span
           className={cn(
             "h-2.5 w-2.5 rounded-full",
-            hasError ? "bg-danger" : "bg-success",
+            hasError ? "bg-danger-fill" : "bg-success-fill",
           )}
-          title={hasError ? "API con incidencias" : `API operativa · ${alertCount} alertas activas`}
+          title={`${etiqueta} · ${detalle}`}
         />
       </div>
     );
   }
 
   return (
-    <div className="m-3 rounded-xl border border-border bg-surface-2 p-3">
-      <div className="flex items-center gap-2">
-        <span className="relative flex h-2 w-2" aria-hidden="true">
+    <div className="px-3 pb-3">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-full border px-3 py-1.5",
+          hasError
+            ? "border-danger-soft bg-danger-soft"
+            : "border-border bg-surface-2",
+        )}
+        title={detalle}
+      >
+        <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
           {!hasError ? (
-            <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
+            <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-success-fill opacity-60" />
           ) : null}
           <span
             className={cn(
               "relative inline-flex h-2 w-2 rounded-full",
-              hasError ? "bg-danger" : "bg-success",
+              hasError ? "bg-danger-fill" : "bg-success-fill",
             )}
           />
         </span>
-        <p className="text-xs font-semibold text-fg">
-          {hasError ? "API con incidencias" : "API operativa"}
-        </p>
+        <span
+          className={cn(
+            "truncate text-[11px] font-semibold",
+            hasError ? "text-danger-strong" : "text-muted",
+          )}
+        >
+          {etiqueta}
+        </span>
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
-        {hasError
-          ? "No se pudieron actualizar los datos. Revisa la conexión con la API."
-          : `${alertCount} alerta${alertCount === 1 ? "" : "s"} activa${
-              alertCount === 1 ? "" : "s"
-            } en este momento.`}
-      </p>
     </div>
   );
 }
@@ -416,6 +429,8 @@ function PageContent({
       return <Alerts />;
     case "tarifas":
       return <Tariffs />;
+    case "asistente":
+      return <Asistente />;
     default:
       return <Dashboard />;
   }
@@ -592,7 +607,7 @@ export default function App() {
             <span className="text-muted">{currentGroup}</span>
             <ChevronRight aria-hidden="true" size={14} className="text-muted-2" />
             <span className="truncate font-semibold text-fg">
-              {getPageLabel(page)}
+              {getPageBreadcrumb(page)}
             </span>
           </div>
 
@@ -625,7 +640,7 @@ export default function App() {
               </span>
               {alertCount > 0 ? (
                 <span
-                  className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-danger ring-2 ring-surface"
+                  className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-danger-fill ring-2 ring-surface"
                   aria-hidden="true"
                 />
               ) : null}
