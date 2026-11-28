@@ -1,0 +1,139 @@
+version: 1
+criterio: >-
+  Los extractos son fragmentos breves usados solo como trazabilidad del grafo
+  derivado. No incorporan telemetria cruda, cifras operativas nuevas ni reglas
+  que contradigan el corpus canonico de SIMET.
+fuentes:
+  - id: corpus_simet
+    titulo: Corpus operativo SIMET
+    tipo: corpus
+    cita: Base de Conocimiento SIMET
+    archivo: docs/base_conocimiento/CORPUS_OPERATIVO_SIMET.md
+    fecha: "2026-11-25"
+    sha256: 944c4c4133dc63c001624f0ea81afdfb4a6745fbbc9ca70bb2351fa855f08599
+    autoridad: canonica dentro de SIMET
+    extractos:
+      - id: corpus:arquitectura
+        localizador: seccion 1, Base operativa
+        texto: >-
+          Navegador React 19 + TypeScript + Vite 8 + Tailwind 4 127.0.0.1:8443;
+          FastAPI + SQLAlchemy 2 127.0.0.1:8000; PostgreSQL, esquemas energia y datamart.
+      - id: corpus:grounding
+        localizador: seccion 1, Base operativa
+        texto: >-
+          El agente debe ayudar a navegar, explicar conceptos, ejecutar herramientas
+          verificadas, citar fuentes y separar dato observado de estimacion. No inventa
+          cifras, no usa conocimiento externo.
+      - id: corpus:prediccion
+        localizador: seccion 6, Modelo predictivo
+        texto: >-
+          Es una estimacion, no un dato observado. Abril es posterior al 31 de marzo de
+          2026, por eso sus valores son proyeccion posterior a la ultima lectura observada.
+  - id: rae
+    titulo: RAE_Definiciones.pdf
+    tipo: lexicografica
+    cita: RAE_Definiciones.pdf (DLE, consulta 26-nov-2026)
+    archivo: C:/Users/mateo/Downloads/RAE_Definiciones.pdf
+    fecha: "2026-11-26"
+    sha256: 72fe3310e0633439106a696e72354601f664aecd79d97e9c6dabd6eaf221f9df
+    autoridad: Real Academia Espanola y Asociacion de Academias de la Lengua Espanola
+    extractos:
+      - id: rae:luz
+        localizador: pagina 2, 2.1 Nodo luz, acepcion 3
+        texto: >-
+          3: sustantivo femenino con sentido de corriente electrica. No debe confundirse
+          con la magnitud energia ni con corriente medida en amperios.
+      - id: rae:energia
+        localizador: pagina 3, 2.2 Nodo energia_electrica
+        texto: >-
+          energia_electrica debe representar una clase de energia, con unidad de
+          almacenamiento explicita, y no confundirse con potencia ni con corriente electrica.
+      - id: rae:indicador
+        localizador: pagina 3, 2.3 Nodo indicador
+        texto: >-
+          indicador puede modelarse como entidad que senala un valor o estado, con
+          atributos como variable observada, valor, unidad, instante, umbral, fuente y
+          estado de calidad.
+      - id: rae:metrica
+        localizador: pagina 3, 2.4 Nodo metrica
+        texto: >-
+          metrica representa el sistema/regla de cuantificacion o definicion operacional
+          de una medicion. La metrica especifica como cuantificar; el indicador
+          presenta/senala un valor o estado.
+  - id: cfe_suministro
+    titulo: CFE_Suministro.pdf
+    tipo: normativa-tecnica
+    cita: CFE_Suministro.pdf (corte 26-nov-2026)
+    archivo: C:/Users/mateo/Downloads/CFE_Suministro.pdf
+    fecha: "2026-11-26"
+    sha256: 0550d405fe9800883921709925ff1adeaf206d1106b63281f349d87594243f76
+    autoridad: CFE Suministrador de Servicios Basicos y normativa federal citada
+    extractos:
+      - id: cfe:rpu
+        localizador: pagina 4, 3.2 RPU, RMU, cuenta y medidor
+        texto: >-
+          RPU: identificador operativo CFE del cliente/servicio. No usar numero de
+          medidor como llave maestra del servicio: el equipo puede sustituirse.
+      - id: cfe:demanda
+        localizador: pagina 5, 4.1 Definicion y demanda maxima
+        texto: >-
+          Los modelos de contrato CFE SSB definen Demanda Contratada como la suma de las
+          potencias, en kW, de los equipos, aparatos y dispositivos que el usuario
+          manifiesta tener conectados.
+      - id: cfe:medidor
+        localizador: pagina 5, 3.2 y 3.3
+        texto: >-
+          Numero de medidor identifica el equipo fisico individual de medicion, no al
+          contrato. El equipo es sustituible; conservar historial de la relacion
+          servicio-medidor con fechas de vigencia.
+  - id: cfe_tarifas
+    titulo: CFE_Tarifas.pdf
+    tipo: normativa-tecnica
+    cita: CFE_Tarifas.pdf (corte 26-nov-2026)
+    archivo: C:/Users/mateo/Downloads/CFE_Tarifas.pdf
+    fecha: "2026-11-26"
+    sha256: 635ea43bfea8e624a77a1b0e910fde9ef78fa3e1d74e396ce09f65947e6a606f
+    autoridad: CFE, Diario Oficial de la Federacion y Comision Nacional de Energia
+    extractos:
+      - id: cfe:dac_limites
+        localizador: pagina 5, 5 Umbrales DAC
+        texto: >-
+          El limite es el consumo mensual promedio maximo antes de reclasificacion. La
+          clasificacion termica es por localidad, no por estado completo.
+      - id: cfe:dac_regla
+        localizador: pagina 6, Regla de calculo del promedio movil
+        texto: >-
+          Entrada a DAC: cuando el promedio movil sea superior al limite aplicable a la
+          localidad. No usar el consumo del ultimo recibo aislado como sustituto del
+          promedio movil.
+  - id: banco_memoria
+    titulo: Banco_Memoria_Analitica_SQL_Guardrails.pdf
+    tipo: metodologica
+    cita: Banco_Memoria_Analitica_SQL_Guardrails.pdf (v1.0, 26-nov-2026)
+    archivo: C:/Users/mateo/Downloads/Banco_Memoria_Analitica_SQL_Guardrails.pdf
+    fecha: "2026-11-26"
+    sha256: ae4b32f009929d273e00772e19938289dab54e340542bea5d03b36d08a42913f
+    autoridad: manual operativo tecnico adaptado a las reglas de SIMET
+    extractos:
+      - id: banco:arquitectura_llm
+        localizador: pagina 12, Seccion 4
+        texto: >-
+          El LLM es una capa de interpretacion y comunicacion. PostgreSQL/Python calcula
+          y valida. La aplicacion debe bloquear la respuesta antes de invocar el modelo
+          cuando una regla dura no se cumpla.
+      - id: banco:null_cero
+        localizador: paginas 13-14, 4.3 NULL, faltante y cero
+        texto: >-
+          NULL no se suma como cero; contar en n_nulos. FALTANTE no confundir con NULL.
+          Cero medido y validado si participa; cero imputado nunca etiquetado como
+          observacion medida.
+      - id: banco:pronostico
+        localizador: paginas 12-14, 4.1 y 4.2
+        texto: >-
+          n menor que 3 periodos validos prohibe cualquier proyeccion. D_com menor que
+          80 por ciento bloquea tendencias, regresiones y pronosticos del periodo.
+      - id: banco:evidencia
+        localizador: pagina 14, 4.4 Contrato de evidencia
+        texto: >-
+          Toda respuesta cuantitativa debe referenciar periodo, granularidad, calidad,
+          muestra, estadistico y metodo. La evidencia no puede ser creada por el modelo.

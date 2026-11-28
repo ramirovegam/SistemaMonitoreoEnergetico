@@ -8,9 +8,14 @@ negocio. Las cifras operativas deben venir siempre de las herramientas SQL.
 from __future__ import annotations
 
 import re
-import unicodedata
 from datetime import datetime
 from typing import Any
+
+from ..graphrag.normalizacion import normalizar
+
+# Alias público: la normalización la define graphrag.normalizacion para que
+# artefactos, ingesta y planificador comparen con el mismo criterio.
+_normalizar = normalizar
 
 ALCANCE = {
     "nombre": "SIMET",
@@ -56,6 +61,17 @@ GLOSARIO: dict[str, dict[str, Any]] = {
             "menor calidad de enlace para priorizar revisión."
         ),
         "alias": ("enlace", "calidad del enlace", "medidores con peor enlace"),
+    },
+    "medidor": {
+        "titulo": "Medidor",
+        "categoria": "Conceptos de SIMET",
+        "definicion": (
+            "Un medidor es el equipo físico de medición asociado a un contrato o a "
+            "una instalación independiente. El patrón ordinario es un medidor "
+            "principal por servicio, pero el número de medidor identifica el "
+            "equipo, no al cliente: puede sustituirse y conserva historial."
+        ),
+        "alias": ("medidores",),
     },
     "prioridad_alerta": {
         "titulo": "Niveles de prioridad de alertas",
@@ -272,17 +288,34 @@ def respuesta_reloj(tipo: str, prefijo: str | None = None) -> str:
 
 
 CAPACIDADES = (
-    "Puedo presentarme, responder preguntas abiertas sobre SIMET, explicar conceptos "
-    "del sistema, decir la hora y fecha local del servidor y ejecutar herramientas "
-    "de solo lectura sobre el datamart y los catálogos. "
+    "Puedo presentarme, explicar conceptos de SIMET, dar la hora local y consultar "
+    "datos verificados de Toluca con herramientas de solo lectura. Consulto resumen "
+    "del sistema, zonas, servicios, tarifas, alertas, medidores y series diarias u "
+    "horarias. Calculo promedios, sumas y fórmulas verificadas: factor de carga, "
+    "proyección de tendencia, riesgo DAC, índice de pérdidas y expresiones seguras. "
     "Las definiciones salen de la Base de Conocimiento SIMET; las cifras salen de la "
-    "base de datos verificada de SIMET, nunca de memoria ni de fuentes externas. "
-    "Puedo consultar resumen del sistema, zonas, servicios y tarifas, alertas y "
-    "medidores, series diarias y horarias, calcular agregados como promedio o suma "
-    "y ejecutar consultas SELECT de solo lectura. También aplico fórmulas verificadas "
-    "como factor de carga, proyección de tendencia, riesgo DAC, índice de pérdidas "
-    "y expresiones seguras. Menciono las fuentes consultadas y separo estimaciones "
-    "de datos observados."
+    "base verificada. Cito las fuentes y separo estimaciones de datos observados."
+)
+
+FRECUENCIA_SIN_DEFINICION = (
+    "No tengo una definición de 'frecuencia' en las fuentes verificadas de SIMET, "
+    "así que no la improviso."
+)
+
+ACLARACION_ENLISTALO = (
+    "¿Qué quieres que enliste? Puedo listar capacidades, zonas, servicios, alertas "
+    "o fórmulas verificadas.\n\n*Fuente: Base de Conocimiento SIMET.*"
+)
+
+SUGERENCIAS_RESPUESTA = (
+    "### Sugerencias\n\n"
+    "1. **Resumen**: ¿Cuál es el consumo total y con qué semilla se generó?\n"
+    "2. **Zonas**: Ranking de las 10 zonas con mayor consumo real.\n"
+    "3. **Tarifas**: ¿Qué tipo de servicio tiene mayor consumo y cómo se relaciona con DAC?\n"
+    "4. **Alertas**: ¿Cuántas alertas siguen abiertas y qué medidores concentran más?\n"
+    "5. **Tendencia**: Proyección de consumo a 15 días con banda de predicción.\n"
+    "6. **Concepto**: ¿Qué significa Tarifa DAC según SIMET?\n\n"
+    "*Fuente: Base de Conocimiento SIMET.*"
 )
 
 FUERA_DE_ALCANCE = (
@@ -291,8 +324,44 @@ FUERA_DE_ALCANCE = (
     "servicios, medidores, alertas, tarifas y fórmulas verificadas."
 )
 
+SALUDOS_RESPUESTA = {
+    "hola": "Hola",
+    "buenos dias": "Buenos días",
+    "buenas tardes": "Buenas tardes",
+    "buenas noches": "Buenas noches",
+    "buenas": "Buenas",
+    "que tal": "Qué tal",
+    "como estas": "Cómo estás",
+    "saludos": "Saludos",
+}
+
+REDIRECCION = (
+    "Entiendo la frustración. Dime qué necesitas y lo reviso con los datos de SIMET.\n\n"
+    "*Fuente: Base de Conocimiento SIMET.*"
+)
+
+SQL_SOLO_LECTURA = (
+    "SIMET solo admite consultas SELECT o WITH de solo lectura. "
+    "No ejecuto DROP, DELETE, ALTER, INSERT ni UPDATE.\n\n"
+    "*Fuente: Base de Conocimiento SIMET.*"
+)
+
 SIN_EVIDENCIA = (
     "No hay evidencia suficiente en los datos disponibles para responder esa pregunta."
+)
+
+SQL_NO_EJECUTABLE = (
+    "No ejecuto comentarios SQL, múltiples sentencias, funciones de sistema ni "
+    "catálogos internos. SIMET solo acepta una sentencia SELECT o WITH de solo "
+    "lectura sobre datos verificados.\n\n"
+    "*Fuente: Base de Conocimiento SIMET.*"
+)
+
+ALERTAS_ZONA_SIN_RANKING = (
+    "Tengo el total de alertas abiertas y los medidores con más alertas, pero no "
+    "tengo un ranking verificado por zona de alertas abiertas. Puedo darte el total "
+    "global o las alertas de una zona concreta.\n\n"
+    "*Fuente: Base de Conocimiento SIMET.*"
 )
 
 SIN_PRONOSTICO_OFICIAL = (
@@ -330,15 +399,6 @@ TEMAS_AJENOS = (
 )
 
 
-def _normalizar(texto: str) -> str:
-    sin_tildes = "".join(
-        letra
-        for letra in unicodedata.normalize("NFD", texto.lower())
-        if unicodedata.category(letra) != "Mn"
-    )
-    return " ".join(sin_tildes.replace("?", " ").replace("¿", " ").split())
-
-
 def es_ajeno(texto: str) -> bool:
     """Detecta temas claramente fuera del dominio verificado de SIMET."""
     normalizado = _normalizar(texto)
@@ -350,43 +410,145 @@ def es_ajeno(texto: str) -> bool:
     return "energia electrica" not in normalizado and "consumo electrico" not in normalizado
 
 
-def detectar_termino(texto: str) -> str | None:
-    """Devuelve la clave del glosario más afín, sin consultar la base."""
-    normalizado = _normalizar(texto)
+def _alias_normalizados(entrada: dict[str, Any]) -> tuple[str, ...]:
+    return tuple(normalizar(alias) for alias in entrada.get("alias", ()))
+
+
+def _distancia_sustitucion(uno: str, otro: str) -> int:
+    """Distancia de edición solo con sustituciones; longitud debe coincidir."""
+    if len(uno) != len(otro):
+        return 99
+    return sum(1 for a, b in zip(uno, otro) if a != b)
+
+
+def resolver_termino(texto: str) -> tuple[str | None, str | None]:
+    """Devuelve (clave del glosario, término interpretado).
+
+    La tolerancia a typos se aplica solo a vocabulario cerrado, con una
+    sustitución y un único candidato. Nunca se adivina longitud distinta.
+    """
+    normalizado = normalizar(texto)
     mejor: str | None = None
     longitud = 0
     for clave, entrada in GLOSARIO.items():
-        candidatos = (clave, *_alias_normalizados(entrada))
-        for candidato in candidatos:
+        for candidato in (clave, *_alias_normalizados(entrada)):
             if not candidato or len(candidato) <= longitud:
                 continue
             patron = rf"(?<!\w){re.escape(candidato)}(?!\w)"
             if re.search(patron, normalizado):
                 mejor = clave
                 longitud = len(candidato)
-    return mejor
+    if mejor:
+        return mejor, None
+
+    palabras = re.findall(r"\b\w+\b", normalizado)
+    originales = re.findall(r"\b\w+\b", str(texto or ""))
+    if not palabras or len(palabras[-1]) < 4:
+        return None, None
+    consultado = palabras[-1]
+    candidatos = {
+        (clave, candidato)
+        for clave, entrada in GLOSARIO.items()
+        for candidato in (clave, *_alias_normalizados(entrada))
+        if candidato
+        and len(candidato) == len(consultado)
+        and _distancia_sustitucion(candidato, consultado) == 1
+    }
+    claves = {clave for clave, _ in candidatos}
+    if len(claves) != 1 or len(candidatos) != 1:
+        return None, None
+    clave, _ = next(iter(candidatos))
+    interpretado = originales[-1] if originales else consultado
+    return clave, interpretado
 
 
-def _alias_normalizados(entrada: dict[str, Any]) -> tuple[str, ...]:
-    return tuple(_normalizar(alias) for alias in entrada.get("alias", ()))
+def detectar_termino(texto: str) -> str | None:
+    """Compatibilidad: devuelve solo la clave del glosario."""
+    clave, _ = resolver_termino(texto)
+    return clave
 
 
-def explicar(termino: str) -> str:
+def explicar(termino: str, interpretacion: str | None = None) -> str:
     entrada = GLOSARIO.get(termino)
     if not entrada:
         return FUERA_DE_ALCANCE
+    aviso = (
+        f"Interpreté '{interpretacion}' como '{entrada['titulo']}'.\n\n"
+        if interpretacion
+        else ""
+    )
     return (
-        f"### {entrada['titulo']}\n\n"
+        f"{aviso}### {entrada['titulo']}\n\n"
         f"{entrada['definicion']}\n\n"
         "*Fuente: Base de Conocimiento SIMET.*"
     )
 
 
-def respuesta_conversacional(tipo: str) -> str:
+def nombres_formulas() -> tuple[str, ...]:
+    """Nombres declarados en el registro, sin lista escrita a mano."""
+    from .formulas import FORMULAS
+
+    return tuple(FORMULAS)
+
+
+def respuesta_aclaracion(tipo: str) -> str:
+    if tipo == "enlistalo":
+        return ACLARACION_ENLISTALO
+    if tipo == "frecuencia":
+        return FRECUENCIA_SIN_DEFINICION
+    if tipo == "formula":
+        lista = ", ".join(f"`{nombre}`" for nombre in nombres_formulas())
+        return (
+            f"¿De cuál fórmula? Disponibles: {lista}. "
+            "Dime el nombre o la magnitud que te interesa.\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
+    if tipo == "metricas":
+        return (
+            "¿De qué zona y periodo (por ejemplo, un mes)? Si prefieres, te doy el "
+            "resumen acumulado de enero a marzo de 2026 con sus fuentes verificadas.\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
+    if tipo == "periodos":
+        return (
+            "¿Te refieres a cada mes por separado o a un rango continuo? Dime "
+            "«enero y marzo» para dos periodos o «de enero a marzo» para el rango.\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
+    if tipo == "zona_numero":
+        return (
+            "No identifico ese número de zona en el catálogo verificado. Dime el "
+            "nombre de la zona y consulto sus datos.\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
+    if tipo == "zona_contexto":
+        return (
+            "No tengo una zona previa verificada en esta conversación. Dime el "
+            "nombre de la zona o escríbela en la pregunta.\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
+    return FUERA_DE_ALCANCE
+
+
+def respuesta_conversacional(tipo: str, saludo: str | None = None) -> str:
     if tipo == "saludo":
-        return f"Hola. {respuesta_identidad()} ¿Qué necesitas revisar?"
+        prefijo = SALUDOS_RESPUESTA.get(normalizar(saludo or ""), "Hola")
+        return (
+            f"{prefijo}. {respuesta_identidad()} ¿Qué necesitas revisar?\n\n"
+            "*Fuente: Base de Conocimiento SIMET.*"
+        )
     if tipo == "capacidades":
         return f"### Qué puedo hacer\n\n{CAPACIDADES}\n\n*Fuente: Base de Conocimiento SIMET.*"
+    if tipo == "sugerencias":
+        return SUGERENCIAS_RESPUESTA
+    if tipo == "redireccion":
+        return REDIRECCION
+    if tipo == "sql_prohibido":
+        return SQL_SOLO_LECTURA
+    if tipo == "sql_no_ejecutable":
+        return SQL_NO_EJECUTABLE
+    if tipo == "alertas_zona_sin_ranking":
+        return ALERTAS_ZONA_SIN_RANKING
     if tipo == "sin_pronostico":
         return SIN_PRONOSTICO_OFICIAL
     if tipo == "agradecimiento":

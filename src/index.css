@@ -29,6 +29,7 @@
   --accent-soft: #fce6d0;
   --accent-soft-2: #f8d4ae;
   --accent-contrast: #1c1b18;
+  --logo-mark: #ffffff;
   --accent-ring: rgb(249 115 22 / 0.35);
 
   --success: #0e7a43;
@@ -268,6 +269,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-soft-2: var(--accent-soft-2);
   --color-accent-contrast: var(--accent-contrast);
+  --color-logo-mark: var(--logo-mark);
   --color-success: var(--success);
   --color-success-strong: var(--success-strong);
   --color-success-soft: var(--success-soft);

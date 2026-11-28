@@ -56,6 +56,7 @@ class ConsultaResponse(BaseModel):
     modo: Literal["conversacional", "conceptual", "datos"]
     origen: Literal["llm", "local"]
     aviso: str | None = None
+    preferencias_aplicadas: list[str] = Field(default_factory=list)
 
     # Campos conservados para clientes anteriores del panel.
     fuente: list[str] = Field(default_factory=list)

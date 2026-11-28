@@ -112,7 +112,7 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       )}
     >
       <div className="gradient-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-md">
-        <Zap size={18} className="text-accent-contrast" aria-hidden="true" />
+        <Zap size={18} className="text-logo-mark" aria-hidden="true" />
       </div>
       {!collapsed ? (
         <div className="min-w-0">

@@ -221,13 +221,13 @@ def proyeccion_tendencia(
 
 def riesgo_dac(datos: Any, **_: Any) -> dict[str, Any]:
     """Riesgo DAC por tipo de servicio y tarifa, sin atribución por RPU."""
-    filas = (
-        datos
-        if isinstance(datos, list)
-        else datos.get("datos", [])
-        if isinstance(datos, dict)
-        else []
-    )
+    if isinstance(datos, list):
+        filas = datos
+    elif isinstance(datos, dict):
+        # La herramienta verificada entrega `servicios`, no `datos`.
+        filas = datos.get("servicios") or datos.get("datos") or []
+    else:
+        filas = []
     evaluados: list[dict[str, Any]] = []
 
     def evaluar(fila: dict[str, Any], tarifa: dict[str, Any]) -> None:

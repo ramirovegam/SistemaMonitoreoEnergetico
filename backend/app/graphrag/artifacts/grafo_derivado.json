@@ -1,0 +1,1218 @@
+{
+  "aristas": [
+    {
+      "desde": "alias:000:hey",
+      "hasta": "intencion:saludo",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:001:hola",
+      "hasta": "intencion:saludo",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:002:buenas",
+      "hasta": "intencion:saludo",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:003:que_tal",
+      "hasta": "intencion:saludo",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:004:como_estas",
+      "hasta": "intencion:saludo",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:005:arquitectura",
+      "hasta": "concepto:arquitectura",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:006:tu_arquitectura",
+      "hasta": "concepto:arquitectura",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:007:que_arquitectura_usas",
+      "hasta": "concepto:arquitectura",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:008:como_esta_construido_simet",
+      "hasta": "concepto:arquitectura",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:009:stack_de_simet",
+      "hasta": "concepto:arquitectura",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:010:diferencia_entre_indicador_y_metrica",
+      "hasta": "relacion:indicador_metrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:011:que_es_una_metrica",
+      "hasta": "concepto:metrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:012:metrica",
+      "hasta": "concepto:metrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:013:metricas",
+      "hasta": "concepto:metrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:014:kpi",
+      "hasta": "concepto:metrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:015:indicador",
+      "hasta": "concepto:indicador",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:016:indicadores",
+      "hasta": "concepto:indicador",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:017:que_es_luz",
+      "hasta": "concepto:luz",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:018:luz",
+      "hasta": "concepto:luz",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:019:luz_electrica",
+      "hasta": "concepto:luz",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:020:energia_electrica",
+      "hasta": "concepto:energia_electrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:021:que_es_energia",
+      "hasta": "concepto:energia_electrica",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:022:rpu",
+      "hasta": "concepto:rpu",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:023:registro_permanente_de_usuario",
+      "hasta": "concepto:rpu",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:024:demanda_contratada",
+      "hasta": "concepto:demanda_contratada",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:025:carga_contratada",
+      "hasta": "concepto:demanda_contratada",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:026:medidor",
+      "hasta": "concepto:medidor",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:027:medidores",
+      "hasta": "concepto:medidor",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:028:tarifa_dac",
+      "hasta": "regla:tarifa_dac",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:029:dac",
+      "hasta": "regla:tarifa_dac",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:030:domestica_de_alto_consumo",
+      "hasta": "regla:tarifa_dac",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:031:como_funcionan_las_predicciones",
+      "hasta": "regla:prediccion",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:032:reglas_de_prediccion",
+      "hasta": "regla:prediccion",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:033:guardrails",
+      "hasta": "regla:guardrails",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "alias:034:reglas_del_asistente",
+      "hasta": "regla:guardrails",
+      "tipo": "ALIAS_DE"
+    },
+    {
+      "desde": "concepto:arquitectura",
+      "evidencia": [
+        "corpus:arquitectura"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:arquitectura",
+      "hasta": "territorio:toluca",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:demanda_contratada",
+      "evidencia": [
+        "cfe:demanda"
+      ],
+      "hasta": "fuente:cfe_suministro",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:demanda_contratada",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:demanda_contratada",
+      "hasta": "concepto:medidor",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:energia_electrica",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:energia_electrica",
+      "evidencia": [
+        "rae:energia"
+      ],
+      "hasta": "fuente:rae",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:energia_electrica",
+      "hasta": "concepto:luz",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:identidad",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:indicador",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:indicador",
+      "evidencia": [
+        "rae:indicador"
+      ],
+      "hasta": "fuente:rae",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:indicador",
+      "hasta": "concepto:metrica",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:luz",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:luz",
+      "evidencia": [
+        "rae:luz"
+      ],
+      "hasta": "fuente:rae",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:luz",
+      "hasta": "concepto:energia_electrica",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:medidor",
+      "evidencia": [
+        "cfe:medidor"
+      ],
+      "hasta": "fuente:cfe_suministro",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:medidor",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:medidor",
+      "hasta": "concepto:rpu",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:metrica",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:metrica",
+      "evidencia": [
+        "rae:metrica"
+      ],
+      "hasta": "fuente:rae",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:metrica",
+      "hasta": "concepto:indicador",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:metrica",
+      "hasta": "herramienta:consultar_zonas",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "concepto:pronostico_oficial",
+      "evidencia": [
+        "corpus:prediccion"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:rpu",
+      "evidencia": [
+        "cfe:rpu"
+      ],
+      "hasta": "fuente:cfe_suministro",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:rpu",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "concepto:rpu",
+      "hasta": "concepto:medidor",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "herramienta:consultar_zonas",
+      "hasta": "concepto:metrica",
+      "tipo": "MIDE"
+    },
+    {
+      "desde": "herramienta:consultar_zonas",
+      "hasta": "territorio:toluca",
+      "tipo": "MIDE"
+    },
+    {
+      "desde": "intencion:saludo",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "intencion:saludo",
+      "hasta": "concepto:identidad",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "intencion:saludo",
+      "hasta": "concepto:identidad",
+      "tipo": "RESUELVE_CON"
+    },
+    {
+      "desde": "regla:guardrails",
+      "evidencia": [
+        "banco:arquitectura_llm",
+        "banco:null_cero"
+      ],
+      "hasta": "fuente:banco_memoria",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:guardrails",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:guardrails",
+      "hasta": "concepto:pronostico_oficial",
+      "tipo": "RECHAZA"
+    },
+    {
+      "desde": "regla:guardrails",
+      "hasta": "concepto:pronostico_oficial",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "regla:prediccion",
+      "evidencia": [
+        "banco:pronostico",
+        "banco:evidencia"
+      ],
+      "hasta": "fuente:banco_memoria",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:prediccion",
+      "evidencia": [
+        "corpus:prediccion"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:prediccion",
+      "hasta": "concepto:pronostico_oficial",
+      "tipo": "RECHAZA"
+    },
+    {
+      "desde": "regla:prediccion",
+      "hasta": "concepto:pronostico_oficial",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "regla:prediccion",
+      "hasta": "herramienta:calcular_formula",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "regla:prediccion",
+      "hasta": "herramienta:calcular_formula",
+      "tipo": "USA_HERRAMIENTA"
+    },
+    {
+      "desde": "regla:tarifa_dac",
+      "evidencia": [
+        "cfe:dac_limites",
+        "cfe:dac_regla"
+      ],
+      "hasta": "fuente:cfe_tarifas",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:tarifa_dac",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "regla:tarifa_dac",
+      "hasta": "concepto:demanda_contratada",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "relacion:indicador_metrica",
+      "evidencia": [
+        "corpus:grounding"
+      ],
+      "hasta": "fuente:corpus_simet",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "relacion:indicador_metrica",
+      "evidencia": [
+        "rae:metrica"
+      ],
+      "hasta": "fuente:rae",
+      "tipo": "DERIVA_DE"
+    },
+    {
+      "desde": "relacion:indicador_metrica",
+      "hasta": "concepto:indicador",
+      "tipo": "RELACIONADO_CON"
+    },
+    {
+      "desde": "relacion:indicador_metrica",
+      "hasta": "concepto:metrica",
+      "tipo": "RELACIONADO_CON"
+    }
+  ],
+  "nodos": [
+    {
+      "id": "alias:000:hey",
+      "motivo": "saludo coloquial no cubierto por el planificador",
+      "prioridad": 100,
+      "texto": "hey",
+      "tipo": "alias",
+      "titulo": "hey"
+    },
+    {
+      "id": "alias:001:hola",
+      "motivo": "",
+      "prioridad": 90,
+      "texto": "hola",
+      "tipo": "alias",
+      "titulo": "hola"
+    },
+    {
+      "id": "alias:002:buenas",
+      "motivo": "",
+      "prioridad": 90,
+      "texto": "buenas",
+      "tipo": "alias",
+      "titulo": "buenas"
+    },
+    {
+      "id": "alias:003:que_tal",
+      "motivo": "",
+      "prioridad": 90,
+      "texto": "que tal",
+      "tipo": "alias",
+      "titulo": "que tal"
+    },
+    {
+      "id": "alias:004:como_estas",
+      "motivo": "",
+      "prioridad": 90,
+      "texto": "como estas",
+      "tipo": "alias",
+      "titulo": "como estas"
+    },
+    {
+      "id": "alias:005:arquitectura",
+      "motivo": "definicion del corpus operativo, ausente del glosario",
+      "prioridad": 100,
+      "texto": "arquitectura",
+      "tipo": "alias",
+      "titulo": "arquitectura"
+    },
+    {
+      "id": "alias:006:tu_arquitectura",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "tu arquitectura",
+      "tipo": "alias",
+      "titulo": "tu arquitectura"
+    },
+    {
+      "id": "alias:007:que_arquitectura_usas",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "que arquitectura usas",
+      "tipo": "alias",
+      "titulo": "que arquitectura usas"
+    },
+    {
+      "id": "alias:008:como_esta_construido_simet",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "como esta construido simet",
+      "tipo": "alias",
+      "titulo": "como esta construido simet"
+    },
+    {
+      "id": "alias:009:stack_de_simet",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "stack de simet",
+      "tipo": "alias",
+      "titulo": "stack de simet"
+    },
+    {
+      "id": "alias:010:diferencia_entre_indicador_y_metrica",
+      "motivo": "",
+      "prioridad": 130,
+      "texto": "diferencia entre indicador y metrica",
+      "tipo": "alias",
+      "titulo": "diferencia entre indicador y metrica"
+    },
+    {
+      "id": "alias:011:que_es_una_metrica",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "que es una metrica",
+      "tipo": "alias",
+      "titulo": "que es una metrica"
+    },
+    {
+      "id": "alias:012:metrica",
+      "motivo": "el termino activa pide_cifras en el planificador",
+      "prioridad": 100,
+      "texto": "metrica",
+      "tipo": "alias",
+      "titulo": "metrica"
+    },
+    {
+      "id": "alias:013:metricas",
+      "motivo": "",
+      "prioridad": 95,
+      "texto": "metricas",
+      "tipo": "alias",
+      "titulo": "metricas"
+    },
+    {
+      "id": "alias:014:kpi",
+      "motivo": "",
+      "prioridad": 90,
+      "texto": "kpi",
+      "tipo": "alias",
+      "titulo": "kpi"
+    },
+    {
+      "id": "alias:015:indicador",
+      "motivo": "",
+      "prioridad": 100,
+      "texto": "indicador",
+      "tipo": "alias",
+      "titulo": "indicador"
+    },
+    {
+      "id": "alias:016:indicadores",
+      "motivo": "",
+      "prioridad": 95,
+      "texto": "indicadores",
+      "tipo": "alias",
+      "titulo": "indicadores"
+    },
+    {
+      "id": "alias:017:que_es_luz",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "que es luz",
+      "tipo": "alias",
+      "titulo": "que es luz"
+    },
+    {
+      "id": "alias:018:luz",
+      "motivo": "acepcion coloquial de suministro electrico, ausente del glosario",
+      "prioridad": 100,
+      "texto": "luz",
+      "tipo": "alias",
+      "titulo": "luz"
+    },
+    {
+      "id": "alias:019:luz_electrica",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "luz electrica",
+      "tipo": "alias",
+      "titulo": "luz electrica"
+    },
+    {
+      "id": "alias:020:energia_electrica",
+      "motivo": "",
+      "prioridad": 105,
+      "texto": "energia electrica",
+      "tipo": "alias",
+      "titulo": "energia electrica"
+    },
+    {
+      "id": "alias:021:que_es_energia",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "que es energia",
+      "tipo": "alias",
+      "titulo": "que es energia"
+    },
+    {
+      "id": "alias:022:rpu",
+      "motivo": "",
+      "prioridad": 100,
+      "texto": "rpu",
+      "tipo": "alias",
+      "titulo": "rpu"
+    },
+    {
+      "id": "alias:023:registro_permanente_de_usuario",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "registro permanente de usuario",
+      "tipo": "alias",
+      "titulo": "registro permanente de usuario"
+    },
+    {
+      "id": "alias:024:demanda_contratada",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "demanda contratada",
+      "tipo": "alias",
+      "titulo": "demanda contratada"
+    },
+    {
+      "id": "alias:025:carga_contratada",
+      "motivo": "",
+      "prioridad": 105,
+      "texto": "carga contratada",
+      "tipo": "alias",
+      "titulo": "carga contratada"
+    },
+    {
+      "id": "alias:026:medidor",
+      "motivo": "",
+      "prioridad": 100,
+      "texto": "medidor",
+      "tipo": "alias",
+      "titulo": "medidor"
+    },
+    {
+      "id": "alias:027:medidores",
+      "motivo": "",
+      "prioridad": 95,
+      "texto": "medidores",
+      "tipo": "alias",
+      "titulo": "medidores"
+    },
+    {
+      "id": "alias:028:tarifa_dac",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "tarifa dac",
+      "tipo": "alias",
+      "titulo": "tarifa dac"
+    },
+    {
+      "id": "alias:029:dac",
+      "motivo": "",
+      "prioridad": 100,
+      "texto": "dac",
+      "tipo": "alias",
+      "titulo": "dac"
+    },
+    {
+      "id": "alias:030:domestica_de_alto_consumo",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "domestica de alto consumo",
+      "tipo": "alias",
+      "titulo": "domestica de alto consumo"
+    },
+    {
+      "id": "alias:031:como_funcionan_las_predicciones",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "como funcionan las predicciones",
+      "tipo": "alias",
+      "titulo": "como funcionan las predicciones"
+    },
+    {
+      "id": "alias:032:reglas_de_prediccion",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "reglas de prediccion",
+      "tipo": "alias",
+      "titulo": "reglas de prediccion"
+    },
+    {
+      "id": "alias:033:guardrails",
+      "motivo": "",
+      "prioridad": 110,
+      "texto": "guardrails",
+      "tipo": "alias",
+      "titulo": "guardrails"
+    },
+    {
+      "id": "alias:034:reglas_del_asistente",
+      "motivo": "",
+      "prioridad": 120,
+      "texto": "reglas del asistente",
+      "tipo": "alias",
+      "titulo": "reglas del asistente"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:arquitectura"
+        ]
+      },
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "concepto:arquitectura",
+      "modo": "conceptual",
+      "respuesta": "La arquitectura de SIMET es local: React 19 + TypeScript + Vite 8 + Tailwind 4 en `127.0.0.1:8443`; FastAPI + SQLAlchemy 2 en `127.0.0.1:8000`; PostgreSQL con los esquemas `energia` y `datamart`. El panel consume la API por HTTP/JSON y la API consulta PostgreSQL con psycopg 3. El agente solo usa herramientas de lectura verificadas.\n\n*Fuente: Base de Conocimiento SIMET (`CORPUS_OPERATIVO_SIMET.md`).*",
+      "tipo": "concepto",
+      "titulo": "Arquitectura de SIMET"
+    },
+    {
+      "evidencia": {
+        "cfe_suministro": [
+          "cfe:demanda"
+        ],
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "cfe_suministro",
+        "corpus_simet"
+      ],
+      "id": "concepto:demanda_contratada",
+      "modo": "conceptual",
+      "respuesta": "La demanda contratada es la suma de potencias, en kW, de los equipos que el usuario declara conectados. Es un parámetro contractual, no consumo medido. SIMET la usa como referencia de capacidad en `carga_contratada_kw`.\n\n*Fuentes: CFE_Suministro.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Demanda contratada"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ],
+        "rae": [
+          "rae:energia"
+        ]
+      },
+      "fuentes": [
+        "rae",
+        "corpus_simet"
+      ],
+      "id": "concepto:energia_electrica",
+      "modo": "conceptual",
+      "respuesta": "Energía eléctrica es una clase de energía, es decir, una magnitud física relacionada con la capacidad de realizar trabajo. No debe confundirse con potencia, corriente ni tensión. En SIMET el consumo se expresa en kWh y se obtiene de las vistas verificadas del datamart.\n\n*Fuentes: RAE_Definiciones.pdf (DLE, energía acepción 2); Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Energía eléctrica"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "concepto:identidad",
+      "modo": "conversacional",
+      "respuesta": "Soy el agente analítico de SIMET. Respondo preguntas sobre el sistema, explico sus conceptos y consulto datos verificados del datamart. Las definiciones salen de la Base de Conocimiento SIMET; las cifras salen de PostgreSQL, nunca de memoria.\n\n*Fuente: Base de Conocimiento SIMET.*",
+      "tipo": "intencion",
+      "titulo": "Identidad del agente"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ],
+        "rae": [
+          "rae:indicador"
+        ]
+      },
+      "fuentes": [
+        "rae",
+        "corpus_simet"
+      ],
+      "id": "concepto:indicador",
+      "modo": "conceptual",
+      "respuesta": "Un indicador es una entidad que señala un valor o estado. En SIMET puede ser un dato observado o un indicador calculado, siempre con variable, unidad, instante, fuente y calidad declarados. La métrica describe la regla de cuantificación; el indicador muestra el resultado.\n\n*Fuentes: RAE_Definiciones.pdf (DLE, acepción 1); Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Indicador"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ],
+        "rae": [
+          "rae:luz"
+        ]
+      },
+      "fuentes": [
+        "rae",
+        "corpus_simet"
+      ],
+      "id": "concepto:luz",
+      "modo": "conceptual",
+      "respuesta": "En SIMET, «luz» se entiende en sentido coloquial de suministro o corriente eléctrica. No equivale a la magnitud física energía ni a la corriente medida en amperios. El consumo se consulta en kWh desde las vistas verificadas del datamart.\n\n*Fuentes: RAE_Definiciones.pdf (DLE, luz acepción 3); Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Luz"
+    },
+    {
+      "evidencia": {
+        "cfe_suministro": [
+          "cfe:medidor"
+        ],
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "cfe_suministro",
+        "corpus_simet"
+      ],
+      "id": "concepto:medidor",
+      "modo": "conceptual",
+      "respuesta": "Un medidor es el equipo físico de medición asociado a un contrato o a una instalación independiente. El patrón ordinario es un medidor principal por servicio, pero el número de medidor identifica el equipo, no al cliente: puede sustituirse y conserva historial.\n\n*Fuentes: CFE_Suministro.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Medidor"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ],
+        "rae": [
+          "rae:metrica"
+        ]
+      },
+      "fuentes": [
+        "rae",
+        "corpus_simet"
+      ],
+      "id": "concepto:metrica",
+      "modo": "conceptual",
+      "respuesta": "En SIMET, una métrica es la regla operacional que define cómo cuantificar una magnitud. El indicador presenta o señala el valor; la métrica describe el sistema de medida. Las cifras del panel salen de vistas verificadas de `datamart`, nunca de memoria ni de fuentes externas.\n\n*Fuentes: RAE_Definiciones.pdf (DLE, acepción 3); Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Métrica"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:prediccion"
+        ]
+      },
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "concepto:pronostico_oficial",
+      "modo": "conceptual",
+      "respuesta": null,
+      "tipo": "concepto",
+      "titulo": "Pronóstico oficial"
+    },
+    {
+      "evidencia": {
+        "cfe_suministro": [
+          "cfe:rpu"
+        ],
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "cfe_suministro",
+        "corpus_simet"
+      ],
+      "id": "concepto:rpu",
+      "modo": "conceptual",
+      "respuesta": "RPU significa Registro Permanente de Usuario. Es el identificador operativo de CFE para un cliente o servicio. SIMET lo conserva como `energia.servicio.rpu` y no lo confunde con el número de medidor, que identifica un activo sustituible.\n\n*Fuentes: CFE_Suministro.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "RPU"
+    },
+    {
+      "cita": "Banco_Memoria_Analitica_SQL_Guardrails.pdf (v1.0, 26-nov-2026)",
+      "disponible": true,
+      "extractos": [
+        {
+          "id": "banco:arquitectura_llm",
+          "localizador": "pagina 12, Seccion 4",
+          "texto": "El LLM es una capa de interpretacion y comunicacion. PostgreSQL/Python calcula y valida. La aplicacion debe bloquear la respuesta antes de invocar el modelo cuando una regla dura no se cumpla."
+        },
+        {
+          "id": "banco:null_cero",
+          "localizador": "paginas 13-14, 4.3 NULL, faltante y cero",
+          "texto": "NULL no se suma como cero; contar en n_nulos. FALTANTE no confundir con NULL. Cero medido y validado si participa; cero imputado nunca etiquetado como observacion medida."
+        },
+        {
+          "id": "banco:pronostico",
+          "localizador": "paginas 12-14, 4.1 y 4.2",
+          "texto": "n menor que 3 periodos validos prohibe cualquier proyeccion. D_com menor que 80 por ciento bloquea tendencias, regresiones y pronosticos del periodo."
+        },
+        {
+          "id": "banco:evidencia",
+          "localizador": "pagina 14, 4.4 Contrato de evidencia",
+          "texto": "Toda respuesta cuantitativa debe referenciar periodo, granularidad, calidad, muestra, estadistico y metodo. La evidencia no puede ser creada por el modelo."
+        }
+      ],
+      "id": "fuente:banco_memoria",
+      "sha256": "ae4b32f009929d273e00772e19938289dab54e340542bea5d03b36d08a42913f",
+      "tipo": "fuente",
+      "titulo": "Banco_Memoria_Analitica_SQL_Guardrails.pdf"
+    },
+    {
+      "cita": "CFE_Suministro.pdf (corte 26-nov-2026)",
+      "disponible": true,
+      "extractos": [
+        {
+          "id": "cfe:rpu",
+          "localizador": "pagina 4, 3.2 RPU, RMU, cuenta y medidor",
+          "texto": "RPU: identificador operativo CFE del cliente/servicio. No usar numero de medidor como llave maestra del servicio: el equipo puede sustituirse."
+        },
+        {
+          "id": "cfe:demanda",
+          "localizador": "pagina 5, 4.1 Definicion y demanda maxima",
+          "texto": "Los modelos de contrato CFE SSB definen Demanda Contratada como la suma de las potencias, en kW, de los equipos, aparatos y dispositivos que el usuario manifiesta tener conectados."
+        },
+        {
+          "id": "cfe:medidor",
+          "localizador": "pagina 5, 3.2 y 3.3",
+          "texto": "Numero de medidor identifica el equipo fisico individual de medicion, no al contrato. El equipo es sustituible; conservar historial de la relacion servicio-medidor con fechas de vigencia."
+        }
+      ],
+      "id": "fuente:cfe_suministro",
+      "sha256": "0550d405fe9800883921709925ff1adeaf206d1106b63281f349d87594243f76",
+      "tipo": "fuente",
+      "titulo": "CFE_Suministro.pdf"
+    },
+    {
+      "cita": "CFE_Tarifas.pdf (corte 26-nov-2026)",
+      "disponible": true,
+      "extractos": [
+        {
+          "id": "cfe:dac_limites",
+          "localizador": "pagina 5, 5 Umbrales DAC",
+          "texto": "El limite es el consumo mensual promedio maximo antes de reclasificacion. La clasificacion termica es por localidad, no por estado completo."
+        },
+        {
+          "id": "cfe:dac_regla",
+          "localizador": "pagina 6, Regla de calculo del promedio movil",
+          "texto": "Entrada a DAC: cuando el promedio movil sea superior al limite aplicable a la localidad. No usar el consumo del ultimo recibo aislado como sustituto del promedio movil."
+        }
+      ],
+      "id": "fuente:cfe_tarifas",
+      "sha256": "635ea43bfea8e624a77a1b0e910fde9ef78fa3e1d74e396ce09f65947e6a606f",
+      "tipo": "fuente",
+      "titulo": "CFE_Tarifas.pdf"
+    },
+    {
+      "cita": "Base de Conocimiento SIMET",
+      "disponible": true,
+      "extractos": [
+        {
+          "id": "corpus:arquitectura",
+          "localizador": "seccion 1, Base operativa",
+          "texto": "Navegador React 19 + TypeScript + Vite 8 + Tailwind 4 127.0.0.1:8443; FastAPI + SQLAlchemy 2 127.0.0.1:8000; PostgreSQL, esquemas energia y datamart."
+        },
+        {
+          "id": "corpus:grounding",
+          "localizador": "seccion 1, Base operativa",
+          "texto": "El agente debe ayudar a navegar, explicar conceptos, ejecutar herramientas verificadas, citar fuentes y separar dato observado de estimacion. No inventa cifras, no usa conocimiento externo."
+        },
+        {
+          "id": "corpus:prediccion",
+          "localizador": "seccion 6, Modelo predictivo",
+          "texto": "Es una estimacion, no un dato observado. Abril es posterior al 31 de marzo de 2026, por eso sus valores son proyeccion posterior a la ultima lectura observada."
+        }
+      ],
+      "id": "fuente:corpus_simet",
+      "sha256": "944c4c4133dc63c001624f0ea81afdfb4a6745fbbc9ca70bb2351fa855f08599",
+      "tipo": "fuente",
+      "titulo": "Corpus operativo SIMET"
+    },
+    {
+      "cita": "RAE_Definiciones.pdf (DLE, consulta 26-nov-2026)",
+      "disponible": true,
+      "extractos": [
+        {
+          "id": "rae:luz",
+          "localizador": "pagina 2, 2.1 Nodo luz, acepcion 3",
+          "texto": "3: sustantivo femenino con sentido de corriente electrica. No debe confundirse con la magnitud energia ni con corriente medida en amperios."
+        },
+        {
+          "id": "rae:energia",
+          "localizador": "pagina 3, 2.2 Nodo energia_electrica",
+          "texto": "energia_electrica debe representar una clase de energia, con unidad de almacenamiento explicita, y no confundirse con potencia ni con corriente electrica."
+        },
+        {
+          "id": "rae:indicador",
+          "localizador": "pagina 3, 2.3 Nodo indicador",
+          "texto": "indicador puede modelarse como entidad que senala un valor o estado, con atributos como variable observada, valor, unidad, instante, umbral, fuente y estado de calidad."
+        },
+        {
+          "id": "rae:metrica",
+          "localizador": "pagina 3, 2.4 Nodo metrica",
+          "texto": "metrica representa el sistema/regla de cuantificacion o definicion operacional de una medicion. La metrica especifica como cuantificar; el indicador presenta/senala un valor o estado."
+        }
+      ],
+      "id": "fuente:rae",
+      "sha256": "72fe3310e0633439106a696e72354601f664aecd79d97e9c6dabd6eaf221f9df",
+      "tipo": "fuente",
+      "titulo": "RAE_Definiciones.pdf"
+    },
+    {
+      "evidencia": {},
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "herramienta:calcular_formula",
+      "modo": "conceptual",
+      "respuesta": null,
+      "tipo": "herramienta",
+      "titulo": "calcular_formula"
+    },
+    {
+      "evidencia": {},
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "herramienta:consultar_zonas",
+      "modo": "conceptual",
+      "respuesta": null,
+      "tipo": "herramienta",
+      "titulo": "consultar_zonas"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "intencion:saludo",
+      "modo": "conversacional",
+      "respuesta": "Hola. Soy el agente analítico de SIMET. Puedo explicar el sistema, sus conceptos y consultar datos verificados de Toluca. ¿Qué necesitas revisar?\n\n*Fuente: Base de Conocimiento SIMET.*",
+      "tipo": "intencion",
+      "titulo": "Saludo"
+    },
+    {
+      "evidencia": {
+        "banco_memoria": [
+          "banco:arquitectura_llm",
+          "banco:null_cero"
+        ],
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "banco_memoria",
+        "corpus_simet"
+      ],
+      "id": "regla:guardrails",
+      "modo": "conceptual",
+      "respuesta": "El asistente aplica guardrails deterministas: usa solo campos del payload verificado; trata NULL, faltante y cero como estados distintos; bloquea tendencias con cobertura insuficiente; y etiqueta toda extrapolación como estimación derivada. PostgreSQL calcula y valida; el modelo explica.\n\n*Fuentes: Banco_Memoria_Analitica_SQL_Guardrails.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "regla",
+      "titulo": "Guardrails deterministas"
+    },
+    {
+      "evidencia": {
+        "banco_memoria": [
+          "banco:pronostico",
+          "banco:evidencia"
+        ],
+        "corpus_simet": [
+          "corpus:prediccion"
+        ]
+      },
+      "fuentes": [
+        "banco_memoria",
+        "corpus_simet"
+      ],
+      "id": "regla:prediccion",
+      "modo": "conceptual",
+      "respuesta": "SIMET no almacena pronósticos oficiales. `proyeccion_tendencia` estima con regresión lineal sobre la serie diaria y entrega banda de predicción a 7, 15 o 30 días. Los valores posteriores al 31 de marzo de 2026 son estimaciones etiquetadas con aviso de estimación derivada.\n\n*Fuentes: Banco_Memoria_Analitica_SQL_Guardrails.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "regla",
+      "titulo": "Predicciones verificadas"
+    },
+    {
+      "evidencia": {
+        "cfe_tarifas": [
+          "cfe:dac_limites",
+          "cfe:dac_regla"
+        ],
+        "corpus_simet": [
+          "corpus:grounding"
+        ]
+      },
+      "fuentes": [
+        "cfe_tarifas",
+        "corpus_simet"
+      ],
+      "id": "regla:tarifa_dac",
+      "modo": "conceptual",
+      "respuesta": "DAC significa Doméstica de Alto Consumo. `CFE_Tarifas.pdf` documenta que el límite depende de la tarifa doméstica y la localidad. SIMET declara 250 y 850 kWh/mes en `energia.tarifa.limite_dac_kwh_mes`; `riesgo_dac` compara el promedio del tipo de servicio contra cada límite, sin atribuir consumo a un RPU ni a una tarifa individual.\n\n*Fuentes: CFE_Tarifas.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "regla",
+      "titulo": "Regla DAC adaptada a SIMET"
+    },
+    {
+      "evidencia": {
+        "corpus_simet": [
+          "corpus:grounding"
+        ],
+        "rae": [
+          "rae:metrica"
+        ]
+      },
+      "fuentes": [
+        "rae",
+        "corpus_simet"
+      ],
+      "id": "relacion:indicador_metrica",
+      "modo": "conceptual",
+      "respuesta": "La métrica define cómo se cuantifica; el indicador muestra el valor o estado resultante. En SIMET una métrica se apoya en vistas verificadas de `datamart` y el indicador se presenta con unidad, periodo y fuente.\n\n*Fuentes: RAE_Definiciones.pdf; Base de Conocimiento SIMET.*",
+      "tipo": "concepto",
+      "titulo": "Indicador frente a métrica"
+    },
+    {
+      "evidencia": {},
+      "fuentes": [
+        "corpus_simet"
+      ],
+      "id": "territorio:toluca",
+      "modo": "conceptual",
+      "respuesta": null,
+      "tipo": "territorio",
+      "titulo": "Toluca"
+    }
+  ],
+  "version": 1
+}

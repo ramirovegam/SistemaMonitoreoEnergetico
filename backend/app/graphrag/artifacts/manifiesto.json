@@ -1,0 +1,34 @@
+{
+  "aristas": 83,
+  "fuentes": [
+    {
+      "disponible": true,
+      "id": "banco_memoria",
+      "sha256": "ae4b32f009929d273e00772e19938289dab54e340542bea5d03b36d08a42913f"
+    },
+    {
+      "disponible": true,
+      "id": "cfe_suministro",
+      "sha256": "0550d405fe9800883921709925ff1adeaf206d1106b63281f349d87594243f76"
+    },
+    {
+      "disponible": true,
+      "id": "cfe_tarifas",
+      "sha256": "635ea43bfea8e624a77a1b0e910fde9ef78fa3e1d74e396ce09f65947e6a606f"
+    },
+    {
+      "disponible": true,
+      "id": "corpus_simet",
+      "sha256": "944c4c4133dc63c001624f0ea81afdfb4a6745fbbc9ca70bb2351fa855f08599"
+    },
+    {
+      "disponible": true,
+      "id": "rae",
+      "sha256": "72fe3310e0633439106a696e72354601f664aecd79d97e9c6dabd6eaf221f9df"
+    }
+  ],
+  "grafo_version": 1,
+  "hash_grafo": "0ffccb951143d8cec173359c26c9368cfd4e8a155d4507ecbb38704b02774947",
+  "nodos": 58,
+  "version": 1
+}

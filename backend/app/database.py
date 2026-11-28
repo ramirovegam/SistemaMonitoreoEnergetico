@@ -16,6 +16,9 @@ if not DATABASE_URL:
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
+    connect_args={
+        "connect_timeout": int(os.getenv("DATABASE_CONNECT_TIMEOUT_SECONDS", "5"))
+    },
 )
 
 

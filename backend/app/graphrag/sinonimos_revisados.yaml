@@ -1,0 +1,121 @@
+version: 1
+criterio: >-
+  Sinonimos revisados a mano. Se descartan equivalencias amplias que pudieran
+  desviar una consulta de datos hacia una definicion. Las consultas de datos
+  siguen siendo resueltas por el planificador antes de llegar al grafo.
+alias:
+  - nodo: intencion:saludo
+    texto: hey
+    prioridad: 100
+    motivo: saludo coloquial no cubierto por el planificador
+  - nodo: intencion:saludo
+    texto: hola
+    prioridad: 90
+  - nodo: intencion:saludo
+    texto: buenas
+    prioridad: 90
+  - nodo: intencion:saludo
+    texto: que tal
+    prioridad: 90
+  - nodo: intencion:saludo
+    texto: como estas
+    prioridad: 90
+
+  - nodo: concepto:arquitectura
+    texto: arquitectura
+    prioridad: 100
+    motivo: definicion del corpus operativo, ausente del glosario
+  - nodo: concepto:arquitectura
+    texto: tu arquitectura
+    prioridad: 110
+  - nodo: concepto:arquitectura
+    texto: que arquitectura usas
+    prioridad: 120
+  - nodo: concepto:arquitectura
+    texto: como esta construido simet
+    prioridad: 120
+  - nodo: concepto:arquitectura
+    texto: stack de simet
+    prioridad: 110
+
+  - nodo: relacion:indicador_metrica
+    texto: diferencia entre indicador y metrica
+    prioridad: 130
+  - nodo: concepto:metrica
+    texto: que es una metrica
+    prioridad: 120
+  - nodo: concepto:metrica
+    texto: metrica
+    prioridad: 100
+    motivo: el termino activa pide_cifras en el planificador
+  - nodo: concepto:metrica
+    texto: metricas
+    prioridad: 95
+  - nodo: concepto:metrica
+    texto: kpi
+    prioridad: 90
+  - nodo: concepto:indicador
+    texto: indicador
+    prioridad: 100
+  - nodo: concepto:indicador
+    texto: indicadores
+    prioridad: 95
+
+  - nodo: concepto:luz
+    texto: que es luz
+    prioridad: 120
+  - nodo: concepto:luz
+    texto: luz
+    prioridad: 100
+    motivo: acepcion coloquial de suministro electrico, ausente del glosario
+  - nodo: concepto:luz
+    texto: luz electrica
+    prioridad: 110
+  - nodo: concepto:energia_electrica
+    texto: energia electrica
+    prioridad: 105
+  - nodo: concepto:energia_electrica
+    texto: que es energia
+    prioridad: 110
+
+  - nodo: concepto:rpu
+    texto: rpu
+    prioridad: 100
+  - nodo: concepto:rpu
+    texto: registro permanente de usuario
+    prioridad: 110
+  - nodo: concepto:demanda_contratada
+    texto: demanda contratada
+    prioridad: 110
+  - nodo: concepto:demanda_contratada
+    texto: carga contratada
+    prioridad: 105
+  - nodo: concepto:medidor
+    texto: medidor
+    prioridad: 100
+  - nodo: concepto:medidor
+    texto: medidores
+    prioridad: 95
+
+  - nodo: regla:tarifa_dac
+    texto: tarifa dac
+    prioridad: 110
+  - nodo: regla:tarifa_dac
+    texto: dac
+    prioridad: 100
+  - nodo: regla:tarifa_dac
+    texto: domestica de alto consumo
+    prioridad: 110
+
+  - nodo: regla:prediccion
+    texto: como funcionan las predicciones
+    prioridad: 120
+  - nodo: regla:prediccion
+    texto: reglas de prediccion
+    prioridad: 120
+  - nodo: regla:guardrails
+    texto: guardrails
+    prioridad: 110
+  - nodo: regla:guardrails
+    texto: reglas del asistente
+    prioridad: 120

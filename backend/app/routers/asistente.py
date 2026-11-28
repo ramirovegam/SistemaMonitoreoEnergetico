@@ -16,10 +16,35 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 
 from ..schemas.asistente import ConsultaRequest, ConsultaResponse, Sugerencia
-from ..services import conocimiento_simet, estadisticas, formulas, llm
+from ..graphrag import resolver as grafo_resolver
+from ..services import conocimiento_simet, estadisticas, formulas, llm, memoria, render
 
 router = APIRouter(prefix="/api/asistente", tags=["Asistente"])
 _MAX_CLAVES = 2000
+_TTL_ANAFORA = 600
+_ESTADOS_ANAFORA: dict[str, tuple[float, str]] = {}
+_BLOQUEO_ANAFORA = threading.Lock()
+
+
+def _pregunta_efectiva(pregunta: str, sesion: str) -> str:
+    if llm._normalizar(pregunta) not in llm.ANAFORAS:
+        return pregunta
+    with _BLOQUEO_ANAFORA:
+        estado = _ESTADOS_ANAFORA.get(sesion)
+    if (
+        estado
+        and estado[1] == "capacidades"
+        and time.time() - estado[0] <= _TTL_ANAFORA
+    ):
+        return "enlista lo que puedes hacer"
+    return pregunta
+
+
+def _recordar_capacidades(sesion: str, texto: str) -> None:
+    if "Qué puedo hacer" not in texto:
+        return
+    with _BLOQUEO_ANAFORA:
+        _ESTADOS_ANAFORA[sesion] = (time.time(), "capacidades")
 
 
 class Limitador:
@@ -210,9 +235,29 @@ def sugerencias() -> list[Sugerencia]:
     return [Sugerencia(**item) for item in estadisticas.SUGERENCIAS]
 
 
-def _responder(body: ConsultaRequest) -> ConsultaResponse:
+def _responder(body: ConsultaRequest, sesion: str = "local") -> ConsultaResponse:
+    estilo = memoria.leer()
+    declaracion = memoria.detectar_declaracion(body.pregunta)
+    if declaracion:
+        if declaracion["accion"] == "olvidar":
+            estilo = memoria.olvidar(declaracion.get("clave"))
+        else:
+            estilo = memoria.registrar(
+                str(declaracion["clave"]),
+                str(declaracion["valor"]),
+                body.pregunta,
+            )
+        return ConsultaResponse(
+            pregunta=body.pregunta,
+            respuesta=memoria.confirmar(declaracion),
+            modo="conversacional",
+            origen="local",
+            preferencias_aplicadas=sorted(estilo.values()),
+        )
+
     historial = [mensaje.model_dump() for mensaje in body.historial[-12:]]
-    plan, aviso_plan = llm.planificar(body.pregunta, historial)
+    pregunta_efectiva = _pregunta_efectiva(body.pregunta, sesion)
+    plan, aviso_plan = llm.planificar(pregunta_efectiva, historial)
     modo = plan.get("modo") if plan.get("modo") in {"conversacional", "conceptual", "datos"} else "datos"
     respuesta_local: str | None = None
     aviso_estimacion: str | None = None
@@ -228,13 +273,23 @@ def _responder(body: ConsultaRequest) -> ConsultaResponse:
             )
         if not respuesta_base:
             respuesta_base = conocimiento_simet.FUERA_DE_ALCANCE
+        fuentes_locales: list[str] = render.fuentes_de_texto(respuesta_base)
+        if respuesta_base == conocimiento_simet.FUERA_DE_ALCANCE:
+            # El plan manda. El grafo solo interviene en el hueco verificado.
+            respuesta_grafo = grafo_resolver.resolver(body.pregunta)
+            if respuesta_grafo is not None:
+                respuesta_base = respuesta_grafo.respuesta
+                modo = respuesta_grafo.modo
+                fuentes_locales = list(respuesta_grafo.fuentes)
         ejecucion: dict[str, Any] = {
             "herramientas": [],
-            "fuentes": [],
+            "fuentes": fuentes_locales,
             "formulas_aplicadas": [],
             "datos_visualizacion": [],
             "datos_compat": None,
-            "metodo_compat": "base de conocimiento",
+            "metodo_compat": (
+                "grafo derivado verificado" if fuentes_locales else "base de conocimiento"
+            ),
         }
         payload = {"modo": modo, "respuesta_base": respuesta_base}
         # La base de conocimiento ya trae la cita canónica: no se gasta un LLM en paráfrasis.
@@ -250,21 +305,21 @@ def _responder(body: ConsultaRequest) -> ConsultaResponse:
             ),
             None,
         )
-        payload = {
-            "modo": "datos",
-            "pregunta": body.pregunta,
-            "herramientas": ejecucion["herramientas"],
-            "fuentes": ejecucion["fuentes"],
-            "formulas_aplicadas": ejecucion["formulas_aplicadas"],
-        }
-        if aviso_estimacion:
-            payload["aviso"] = aviso_estimacion
+        # El plan ya tomó la decisión. El renderizador solo expresa la evidencia;
+        # llamar al proveedor aquí añadía 25 s y podía romper cifras y citas.
+        texto = render.render_datos(ejecucion, body.pregunta, aviso_estimacion)
+        origen = "local"
+        aviso_redaccion = (
+            None
+            if texto != conocimiento_simet.SIN_EVIDENCIA
+            else "Datos no disponibles; respuesta local sin evidencia."
+        )
 
     if respuesta_local is not None:
         texto, aviso_redaccion, origen = respuesta_local, None, "local"
-    else:
-        texto, aviso_redaccion = llm.redactar(body.pregunta, payload, historial)
-        origen = "local" if aviso_plan or aviso_redaccion else "llm"
+
+    texto = memoria.aplicar(texto, estilo)
+    _recordar_capacidades(sesion, texto)
     # La estimación prevalece: es una regla de dominio, no un aviso técnico del proveedor.
     aviso = aviso_estimacion or aviso_plan or aviso_redaccion
     grafica = ejecucion["datos_visualizacion"][0] if ejecucion["datos_visualizacion"] else None
@@ -278,6 +333,7 @@ def _responder(body: ConsultaRequest) -> ConsultaResponse:
         modo=modo,
         origen=origen,
         aviso=aviso,
+        preferencias_aplicadas=sorted(estilo.values()),
         fuente=ejecucion["fuentes"],
         metodo=ejecucion["metodo_compat"] or None,
         datos=ejecucion["datos_compat"],
@@ -294,7 +350,8 @@ def consultar(body: ConsultaRequest, request: Request) -> ConsultaResponse:
             detail="El asistente está atendiendo otras consultas. Intenta de nuevo en unos segundos.",
             headers={"Retry-After": "5"},
         )
+    sesion = (request.headers.get("x-simet-session") or "local")[:64]
     try:
-        return _responder(body)
+        return _responder(body, sesion)
     finally:
         _CONCURRENCIA.release()

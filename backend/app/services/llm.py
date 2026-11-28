@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import unicodedata
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -18,7 +17,8 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from . import conocimiento_simet, estadisticas
+from ..graphrag.normalizacion import normalizar as _normalizar
+from . import conocimiento_simet, estadisticas, periodos
 from .formulas import DIAS_PERMITIDOS, HERRAMIENTA_FORMULAS
 
 load_dotenv()
@@ -45,6 +45,19 @@ PATRONES_INYECCION = (
     "tool_choice",
     "herramienta no verificada",
 )
+ANAFORAS = frozenset(
+    {"enlistalo", "listalo", "enumeralo", "repitelo", "dime mas", "cual era"}
+)
+SUGERENCIAS_VOCAB = {
+    "sugerencias": "sugerencias",
+    "sugerencia": "sugerencia",
+    "sugerensias": "sugerensias",
+    "sugiere": "sugiere",
+    "sugerir": "sugerir",
+    "preguntarle": "preguntarle",
+    "proegutarle": "proegutarle",
+    "proeguntarle": "proeguntarle",
+}
 
 SISTEMA = f"""Eres el Agente Analítico Conversacional de SIMET, un panel de monitoreo energético de Toluca.
 Reglas absolutas de grounding:
@@ -284,15 +297,6 @@ def _plan_desde_mensaje(mensaje: dict[str, Any]) -> dict[str, Any] | None:
     return _validar_plan(_extraer_json(str(contenido or "")))
 
 
-def _normalizar(texto: str) -> str:
-    sin_tildes = "".join(
-        letra
-        for letra in unicodedata.normalize("NFD", texto.lower())
-        if unicodedata.category(letra) != "Mn"
-    )
-    return " ".join(sin_tildes.replace("¿", " ").replace("?", " ").split())
-
-
 def _es_inyeccion(texto: str) -> bool:
     """Detecta directivas que intentan alterar el grounding del agente."""
     normalizado = _normalizar(str(texto or ""))
@@ -343,29 +347,25 @@ def _extraer_zona(pregunta: str, historial: list[dict[str, Any]]) -> str | None:
             if item.get("rol") == "usuario"
         ] + [pregunta]
 
+    primera = r"[A-Za-zÁÉÍÓÚÑáéíóúñ][\wÁÉÍÓÚÑáéíóúñ]{1,30}"
+    posterior = r"[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑ]{1,30}"
     patron = re.compile(
         r"(?:(?:zona|zonas)\s+(?:de\s+|llamada\s+)?"
-        r"|(?:[Mm][eé]tricas?|[Ii]ndicadores?|[Dd]atos|[Rr]esumen)\s+de\s+)"
-        r"([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑ]{1,30}(?:\s+[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑ]{1,30}){0,3})"
+        r"|(?:[Mm][eé]tricas?|[Ii]ndicadores?|[Dd]atos|[Rr]esumen)\s+de\s+"
+        r"|\balertas?\b[^.]{0,40}\ben\s+)"
+        rf"({primera}(?:\s+{posterior}){{0,3}})"
     )
+    descartadas = {
+        "concentran", "mayor", "menor", "consumo", "alertas", "ranking",
+        "simet", "sistema", "datos", "informacion", "metricas", "indicadores",
+        "la", "el", "las", "los", "una", "un", "del", "de", "y", "con",
+        "que", "mas", "por", "para", "esta", "este", "esa", "ese",
+        "mencionada", "mencionado",
+    }
     for texto in textos:
-        coincidencia = patron.search(texto)
-        if coincidencia:
+        for coincidencia in patron.finditer(texto):
             nombre = coincidencia.group(1).strip()
-            if _normalizar(nombre) not in {
-                "concentran",
-                "mayor",
-                "menor",
-                "consumo",
-                "alertas",
-                "ranking",
-                "simet",
-                "sistema",
-                "datos",
-                "informacion",
-                "metricas",
-                "indicadores",
-            }:
+            if _normalizar(nombre) not in descartadas:
                 return nombre[:60]
     return None
 
@@ -417,6 +417,98 @@ def _identidad_solicitada(texto: str) -> bool:
     )
 
 
+def _saludo_solicitado(texto: str) -> str | None:
+    """Devuelve el saludo reconocido, ordenado de más específico a más corto."""
+    for inicio in (
+        "buenos dias",
+        "buenas tardes",
+        "buenas noches",
+        "hola",
+        "buenas",
+        "que tal",
+        "como estas",
+        "saludos",
+    ):
+        if texto.startswith(inicio):
+            return inicio
+    return None
+
+
+def _capacidades_solicitadas(texto: str) -> bool:
+    return any(
+        clave in texto
+        for clave in (
+            "que haces",
+            "que mas sabes",
+            "que puedes hacer",
+            "que sabes hacer",
+            "para que sirves",
+            "en que me ayudas",
+            "que sabes",
+        )
+    )
+
+
+def _unico_candidato(token: str, vocabulario: dict[str, str]) -> str | None:
+    """Solo acepta un token cerrado con una sustitución o dos, sin ambigüedad."""
+    if len(token) < 3:
+        return None
+    exactos = [clave for clave, candidato in vocabulario.items() if candidato == token]
+    if len(exactos) == 1:
+        return exactos[0]
+    coincidencias = [
+        clave
+        for clave, candidato in vocabulario.items()
+        if len(candidato) == len(token)
+        and sum(uno != dos for uno, dos in zip(candidato, token)) <= 2
+    ]
+    if len(coincidencias) != 1:
+        return None
+    return coincidencias[0]
+
+
+def _sugerencias_solicitadas(texto: str) -> bool:
+    normalizado = _normalizar(texto)
+    return any(
+        _unico_candidato(palabra, SUGERENCIAS_VOCAB) is not None
+        for palabra in re.findall(r"\b\w+\b", normalizado)
+    )
+
+
+def _historial_tiene_capacidades(historial: list[dict[str, Any]]) -> bool:
+    for item in reversed(historial[-12:]):
+        if not isinstance(item, dict):
+            continue
+        contenido = str(item.get("contenido") or "")
+        if item.get("rol") == "asistente" and (
+            "Qué puedo hacer" in contenido or "### Qué puedo hacer" in contenido
+        ):
+            return True
+        if item.get("rol") == "usuario" and _capacidades_solicitadas(
+            _normalizar(contenido)
+        ):
+            return True
+    return False
+
+
+def _hostilidad_solicitada(texto: str) -> bool:
+    return any(
+        clave in texto
+        for clave in (
+            "maldita sea",
+            "maldito sea",
+            "mierda",
+            "carajo",
+            "joder",
+            "idiota",
+            "estupido",
+            "imbecil",
+            "inutil",
+            "demonios",
+        )
+    )
+
+
 def _sql_solicitada(pregunta: str) -> str | None:
     """Extrae una sentencia SQL declarada por el usuario o por el planner."""
     coincidencia = re.search(
@@ -429,6 +521,17 @@ def _sql_solicitada(pregunta: str) -> str | None:
     consulta = re.split(r"(?is)\b(?:por favor|porfavor|gracias)\b", coincidencia.group(1))[0]
     consulta = consulta.strip().rstrip("?").rstrip(";").strip()
     return consulta[:2000] or None
+
+
+def _sql_escritura_solicitada(pregunta: str) -> bool:
+    """Detecta sentencias de escritura antes de cualquier ejecución."""
+    texto = _normalizar(pregunta)
+    return bool(
+        re.search(
+            r"\b(?:drop|delete|insert|update|alter|truncate|create|grant|revoke|copy)\b",
+            texto,
+        )
+    )
 
 
 def _agregacion_solicitada(texto: str) -> str | None:
@@ -457,30 +560,38 @@ def _medida_solicitada(texto: str) -> str:
     return "consumo_total_kwh"
 
 
+_CLAVES_FORMULA: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("factor_carga", ("factor de carga",)),
+    (
+        "proyeccion_tendencia",
+        (
+            "proyeccion", "proyecta", "proyectar", "prediccion",
+            "pronostico", "pronostica", "pronosticar", "pronosticame",
+            "tendencia", "regresion",
+        ),
+    ),
+    ("riesgo_dac", ("riesgo dac",)),
+    (
+        "indice_perdidas_y_anomalias",
+        ("perdidas", "desviacion", "anomalias"),
+    ),
+)
+
+
+def _formulas_solicitadas(texto: str) -> list[str]:
+    """Devuelve todas las fórmulas nombradas, ordenadas por aparición."""
+    normalizado = _normalizar(texto)
+    encontradas: list[tuple[int, str]] = []
+    for nombre, claves in _CLAVES_FORMULA:
+        posiciones = [normalizado.find(clave) for clave in claves if clave in normalizado]
+        if posiciones:
+            encontradas.append((min(posiciones), nombre))
+    return [nombre for _, nombre in sorted(encontradas)]
+
+
 def _formula_solicitada(texto: str) -> str | None:
-    if "factor de carga" in texto:
-        return "factor_carga"
-    if any(
-        clave in texto
-        for clave in (
-            "proyeccion",
-            "proyecta",
-            "proyectar",
-            "prediccion",
-            "pronostico",
-            "pronostica",
-            "pronosticar",
-            "pronosticame",
-            "tendencia",
-            "regresion",
-        )
-    ):
-        return "proyeccion_tendencia"
-    if "riesgo dac" in texto:
-        return "riesgo_dac"
-    if any(clave in texto for clave in ("perdidas", "pérdidas", "desviacion", "desviación", "anomalias", "anomalías")):
-        return "indice_perdidas_y_anomalias"
-    return None
+    formulas = _formulas_solicitadas(texto)
+    return formulas[0] if formulas else None
 
 
 def _plan_explicito(texto: str) -> bool:
@@ -518,6 +629,13 @@ def _plan_determinista(
     """Plan de respaldo sin lista blanca de preguntas: decide por tema."""
     historial = historial or []
     texto = _normalizar(pregunta)
+    periodo, pregunta_sin_periodo = periodos.extraer_periodo(pregunta)
+
+    if periodo and periodo.get("ambiguo"):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("periodos"),
+        }
 
     if any(
         clave in texto
@@ -537,10 +655,32 @@ def _plan_determinista(
             "respuesta": conocimiento_simet.respuesta_conversacional("sin_pronostico"),
         }
 
+    if "frecuencia" in texto and any(
+        clave in texto
+        for clave in ("que es", "define", "definicion", "significado", "explica")
+    ):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("frecuencia"),
+        }
+
     reloj = _reloj_solicitado(texto)
     identidad = _identidad_solicitada(texto)
-    saludo = any(
-        texto.startswith(inicio) for inicio in ("hola", "buenas", "que tal", "como estas")
+    saludo = _saludo_solicitado(texto)
+    pide_datos_generico = any(
+        clave in texto
+        for clave in (
+            "metrica",
+            "metricas",
+            "indicador",
+            "indicadores",
+            "datos",
+            "formula",
+            "formulas",
+            "resumen",
+            "consulta",
+            "consultar",
+        )
     )
 
     if reloj:
@@ -566,24 +706,54 @@ def _plan_determinista(
     if saludo:
         return {
             "modo": "conversacional",
-            "respuesta": conocimiento_simet.respuesta_conversacional("saludo"),
+            "respuesta": conocimiento_simet.respuesta_conversacional("saludo", saludo),
         }
     if any(texto.startswith(gracias) for gracias in ("gracias", "muchas gracias")):
         return {
             "modo": "conversacional",
             "respuesta": conocimiento_simet.respuesta_conversacional("agradecimiento"),
         }
-    if any(
-        clave in texto
-        for clave in ("que puedes hacer", "capacidades", "como funcionas", "que sabes hacer")
-    ):
+    if _capacidades_solicitadas(texto):
         return {
             "modo": "conversacional",
             "respuesta": conocimiento_simet.respuesta_conversacional("capacidades"),
         }
+    if texto in ANAFORAS:
+        if _historial_tiene_capacidades(historial):
+            return {
+                "modo": "conversacional",
+                "respuesta": conocimiento_simet.respuesta_conversacional("capacidades"),
+            }
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("enlistalo"),
+        }
+    if _sugerencias_solicitadas(texto):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_conversacional("sugerencias"),
+        }
+    if _hostilidad_solicitada(texto) and not pide_datos_generico:
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_conversacional("redireccion"),
+        }
+
+    if _sql_escritura_solicitada(pregunta):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_conversacional("sql_prohibido"),
+        }
 
     sql = _sql_solicitada(pregunta)
     if sql:
+        try:
+            estadisticas.validar_sql_lectura(sql)
+        except ValueError:
+            return {
+                "modo": "conversacional",
+                "respuesta": conocimiento_simet.respuesta_conversacional("sql_no_ejecutable"),
+            }
         plan = {
             "modo": "datos",
             "pasos": [
@@ -595,6 +765,44 @@ def _plan_determinista(
             ],
         }
         return _validar_plan(plan) or {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.FUERA_DE_ALCANCE,
+        }
+
+    if (
+        "zonas" in texto
+        and any(clave in texto for clave in ("alertas abiertas", "alertas activas"))
+        and any(clave in texto for clave in ("mas", "mayor", "ranking", "top"))
+    ):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_conversacional("alertas_zona_sin_ranking"),
+        }
+
+    if any(
+        clave in texto
+        for clave in (
+            "alertas abiertas",
+            "alertas activas",
+            "alertas pendientes",
+            "alertas sin cerrar",
+        )
+    ):
+        zona_alertas = _extraer_zona(pregunta_sin_periodo, historial)
+        plan_alertas = {
+            "modo": "datos",
+            "pasos": [
+                {
+                    "id": "paso_1",
+                    "herramienta": "consultar_alertas_y_medidores",
+                    "parametros": {
+                        "zona_nombre": zona_alertas,
+                        "solo_abiertas": True,
+                    },
+                }
+            ],
+        }
+        return _validar_plan(plan_alertas) or {
             "modo": "conversacional",
             "respuesta": conocimiento_simet.FUERA_DE_ALCANCE,
         }
@@ -622,19 +830,44 @@ def _plan_determinista(
             "respuesta": conocimiento_simet.FUERA_DE_ALCANCE,
         }
 
-    formula = _formula_solicitada(texto)
+    formulas_solicitadas = _formulas_solicitadas(texto)
+    formula = formulas_solicitadas[0] if formulas_solicitadas else None
+    if "formula" in texto and formula is None:
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("formula"),
+        }
     zona_numerica = re.search(r"\bzona\s+\d+\b", texto) is not None
-    termino = conocimiento_simet.detectar_termino(pregunta)
+    zona = _extraer_zona(pregunta_sin_periodo, historial)
+    termino, interpretacion = conocimiento_simet.resolver_termino(pregunta)
+    es_definicion = any(
+        clave in texto
+        for clave in (
+            "que es",
+            "define ",
+            "definicion de",
+            "significado de",
+            "explica",
+            "explicame",
+        )
+    )
+    pide_calculo = any(
+        clave in texto
+        for clave in ("calcula", "calcular", "calculame", "dame el valor")
+    )
     pide_cifras = formula is not None or zona_numerica or any(
         clave in texto
         for clave in (
             "cuantas",
             "cuantos",
             "cuanto",
+            "consumo",
+            "consumos",
             "metrica",
             "metricas",
             "indicador",
             "indicadores",
+            "resumen",
             "total",
             "actual",
             "ahora",
@@ -663,10 +896,84 @@ def _plan_determinista(
             "anomalias",
         )
     )
-    if termino and not pide_cifras:
-        return {"modo": "conceptual", "respuesta": conocimiento_simet.explicar(termino)}
+    if termino and (not pide_cifras or (es_definicion and not pide_calculo)):
+        return {
+            "modo": "conceptual",
+            "respuesta": conocimiento_simet.explicar(termino, interpretacion),
+        }
 
-    zona = _extraer_zona(pregunta, historial)
+    if zona_numerica and zona is None:
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("zona_numero"),
+        }
+    if (
+        any(
+            clave in texto
+            for clave in ("esa zona", "esa misma zona", "misma zona", "la zona mencionada")
+        )
+        and zona is None
+    ):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("zona_contexto"),
+        }
+
+    predice = any(
+        clave in texto
+        for clave in ("prediccion", "proyeccion", "pronostico", "tendencia")
+    )
+    pide_metricas = any(
+        clave in texto
+        for clave in (
+            "metrica",
+            "metricas",
+            "indicador",
+            "indicadores",
+            "datos",
+            "resumen",
+            "consumo",
+            "consumos",
+        )
+    )
+    if periodo and formula is None and not predice and pide_metricas:
+        plan_mes = {
+            "modo": "datos",
+            "pasos": [
+                {
+                    "id": "paso_1",
+                    "herramienta": "consultar_zonas",
+                    "parametros": {
+                        "zona_nombre": zona,
+                        "orden_por": "consumo",
+                        "limite": 10,
+                        "desde": periodo["desde"],
+                        "hasta": periodo["hasta"],
+                    },
+                }
+            ],
+        }
+        return _validar_plan(plan_mes) or {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.FUERA_DE_ALCANCE,
+        }
+
+    pide_resumen = any(
+        clave in texto
+        for clave in ("resumen general", "resumen del sistema", "resumen de sistema")
+    )
+    if (
+        pide_metricas
+        and not pide_resumen
+        and not es_definicion
+        and not predice
+        and not periodo
+        and not zona
+    ):
+        return {
+            "modo": "conversacional",
+            "respuesta": conocimiento_simet.respuesta_aclaracion("metricas"),
+        }
     pasos: list[dict[str, Any]] = []
 
     def agregar(herramienta: str, parametros: dict[str, Any] | None = None) -> str:
@@ -680,24 +987,47 @@ def _plan_determinista(
         )
         return paso_id
 
-    if formula in {"factor_carga", "proyeccion_tendencia"}:
-        origen = agregar(
-            "obtener_serie_diaria_y_horaria",
-            {"dias": _dias_solicitados(texto)},
+    if formulas_solicitadas:
+        origen_serie: str | None = None
+        for nombre in formulas_solicitadas:
+            if nombre in {"factor_carga", "proyeccion_tendencia"}:
+                if origen_serie is None:
+                    parametros_serie: dict[str, Any] = {"dias": _dias_solicitados(texto)}
+                    if periodo:
+                        parametros_serie["desde"] = periodo["desde"]
+                        parametros_serie["hasta"] = periodo["hasta"]
+                    origen_serie = agregar(
+                        "obtener_serie_diaria_y_horaria", parametros_serie
+                    )
+                parametros_formula: dict[str, Any] = {
+                    "nombre": nombre,
+                    "datos_desde": origen_serie,
+                }
+                if nombre == "proyeccion_tendencia":
+                    parametros_formula["dias"] = _dias_solicitados(texto)
+                agregar("calcular_formula", parametros_formula)
+            elif nombre == "riesgo_dac":
+                origen = agregar("consultar_servicios_y_tarifas", {})
+                agregar("calcular_formula", {"nombre": nombre, "datos_desde": origen})
+            elif nombre == "indice_perdidas_y_anomalias":
+                parametros_zona = {"zona_nombre": zona}
+                if periodo:
+                    parametros_zona["desde"] = periodo["desde"]
+                    parametros_zona["hasta"] = periodo["hasta"]
+                else:
+                    parametros_zona["desde"] = "2026-01-01"
+                    parametros_zona["hasta"] = "2026-04-01"
+                origen = agregar("consultar_desviacion_zonal", parametros_zona)
+                agregar("calcular_formula", {"nombre": nombre, "datos_desde": origen})
+    elif (
+        re.search(r"\bmedidor(?:es)?\b", texto)
+        and not re.search(r"\bmedidor\s+\d+\b", texto)
+        and any(clave in texto for clave in ("cuantos", "cuantas", "total", "numero"))
+    ):
+        agregar(
+            "ejecutar_sql_lectura",
+            {"sql": "SELECT COUNT(*) AS total_medidores FROM energia.medidor"},
         )
-        parametros: dict[str, Any] = {"nombre": formula, "datos_desde": origen}
-        if formula == "proyeccion_tendencia":
-            parametros["dias"] = _dias_solicitados(texto)
-        agregar("calcular_formula", parametros)
-    elif formula == "riesgo_dac":
-        origen = agregar("consultar_servicios_y_tarifas", {})
-        agregar("calcular_formula", {"nombre": formula, "datos_desde": origen})
-    elif formula == "indice_perdidas_y_anomalias":
-        origen = agregar(
-            "consultar_zonas",
-            {"zona_nombre": zona, "orden_por": "desviacion", "limite": 46},
-        )
-        agregar("calcular_formula", {"nombre": formula, "datos_desde": origen})
     elif any(clave in texto for clave in ("alerta", "alertas", "medidor", "medidores", "enlace")):
         agregar(
             "consultar_alertas_y_medidores",
@@ -710,7 +1040,9 @@ def _plan_determinista(
         )
     elif any(clave in texto for clave in ("tarifa", "tarifas", "dac", "servicio", "servicios", "carga contratada")):
         agregar("consultar_servicios_y_tarifas", {})
-    elif any(clave in texto for clave in ("resumen", "semilla", "integridad", "lecturas", "total")):
+    elif any(clave in texto for clave in ("integridad", "validacion", "congruencia")):
+        agregar("validar_integridad_datamart", {})
+    elif any(clave in texto for clave in ("resumen", "semilla", "lecturas", "total")):
         agregar("obtener_resumen_sistema", {})
     elif any(clave in texto for clave in ("diario", "horario", "serie", "consumo", "tendencia")):
         agregar("obtener_serie_diaria_y_horaria", {"dias": _dias_solicitados(texto)})
@@ -853,19 +1185,62 @@ def _lineas_herramienta(resultado: dict[str, Any]) -> list[str]:
 
 def _lineas_formula(formula: dict[str, Any]) -> list[str]:
     nombre = str(formula.get("nombre") or "fórmula")
-    expresion = str(formula.get("expresion") or "")
     resultado = formula.get("resultado")
-    detalles = _pares(resultado, maximo=6)
-    valor_principal = (
-        f"{detalles[0][0]} = {_numero(detalles[0][1], 4)}" if detalles else "sin resultado"
-    )
-    lineas = [
-        f"- **{nombre}**: `{expresion}` → {valor_principal}.",
-        f"  - {formula.get('interpretacion') or ''}".rstrip(),
-    ]
+    if not isinstance(resultado, dict) or resultado.get("disponible") is not True:
+        return [f"- **{nombre}**: sin evidencia suficiente."]
+
+    def cifra(valor: Any) -> str:
+        if valor is None:
+            return "sin dato"
+        try:
+            return _numero(float(valor), 2)
+        except (TypeError, ValueError):
+            return str(valor)
+
+    if nombre == "proyeccion_tendencia":
+        filas = [
+            fila
+            for fila in (resultado.get("proyeccion") or [])
+            if isinstance(fila, dict)
+        ]
+        dias = int(resultado.get("dias_observados") or 0)
+        lineas = [
+            f"- **Proyección de consumo**: regresión lineal sobre {dias} días observados.",
+            "  - Tendencia "
+            f"{cifra(resultado.get('pendiente_kwh_dia'))} kWh/día; "
+            f"R² {cifra(resultado.get('r2'))}. "
+            f"Media móvil de 7 días {cifra(resultado.get('media_movil_7_dias_kwh'))} kWh.",
+        ]
+        if filas:
+            primera, ultima = filas[0], filas[-1]
+            lineas.append(
+                "  - Día 1: "
+                f"{cifra(primera.get('consumo_proyectado_kwh'))} kWh "
+                f"(banda {cifra(primera.get('limite_inferior_kwh'))}–"
+                f"{cifra(primera.get('limite_superior_kwh'))})."
+            )
+            if len(filas) > 1:
+                lineas.append(
+                    f"  - Día {len(filas)}: "
+                    f"{cifra(ultima.get('consumo_proyectado_kwh'))} kWh "
+                    f"(banda {cifra(ultima.get('limite_inferior_kwh'))}–"
+                    f"{cifra(ultima.get('limite_superior_kwh'))})."
+                )
+        lineas.append(
+            "  - La banda de predicción usa σ residual "
+            f"{cifra(resultado.get('desviacion_residual_kwh'))} kWh; "
+            "no es intervalo de confianza de la media."
+        )
+    else:
+        pares = _pares(resultado, maximo=4)
+        detalle = "; ".join(f"{clave} {cifra(valor)}" for clave, valor in pares)
+        lineas = [f"- **{nombre}**: {detalle}."]
+        if formula.get("interpretacion"):
+            lineas.append(f"  - {str(formula['interpretacion']).strip()}")
+
     if formula.get("fuentes"):
         fuentes = ", ".join(f"`{fuente}`" for fuente in formula["fuentes"])
-        lineas.append(f"  - Fuentes heredadas: {fuentes}.")
+        lineas.append(f"  - Fuentes: {fuentes}.")
     return lineas
 
 
@@ -1033,7 +1408,11 @@ def _finalizar(texto: str, payload: dict[str, Any], modo: str) -> str:
 def _recortar(texto: str, limite: int = 800) -> str:
     if len(texto) <= limite:
         return texto
-    return texto[: limite - 1].rstrip() + "…"
+    corte = texto[: limite - 1].rstrip()
+    final = max(corte.rfind("."), corte.rfind("!"), corte.rfind("?"))
+    if final > limite // 2:
+        return corte[: final + 1]
+    return corte.rstrip(" ,;:") + "."
 
 
 def recortar(texto: str, limite: int = 800) -> str:

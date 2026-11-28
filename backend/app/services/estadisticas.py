@@ -13,6 +13,7 @@ import re
 import threading
 import time
 import unicodedata
+from datetime import date
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -38,12 +39,13 @@ if not _URL:
     )
 
 _TIMEOUT_MS = int(os.getenv("ASISTENTE_STATEMENT_TIMEOUT_MS", "30000"))
+_CONNECT_TIMEOUT = int(os.getenv("ASISTENTE_CONNECT_TIMEOUT_SECONDS", "5"))
 _OPTIONS = f"-c default_transaction_read_only=on -c statement_timeout={_TIMEOUT_MS}"
 
 engine = create_engine(
     _URL,
     pool_pre_ping=True,
-    connect_args={"options": _OPTIONS},
+    connect_args={"options": _OPTIONS, "connect_timeout": _CONNECT_TIMEOUT},
 )
 SessionLocal = sessionmaker(
     bind=engine,
@@ -218,11 +220,23 @@ def _catalogo_servicios_tarifas() -> list[dict]:
 
 
 @_ttl_cache(TTL_SEGUNDOS)
-def _serie_diaria(dias: int) -> list[dict]:
+def _serie_diaria(
+    dias: int,
+    desde: str | None = None,
+    hasta: str | None = None,
+) -> list[dict]:
     # `medidores_activos` obliga a un count(DISTINCT ...) sobre 10.8 M filas y
     # agota statement_timeout. Ninguna fórmula ni gráfica del asistente lo usa.
+    filtro = ""
+    parametros: dict[str, Any] = {"dias": dias}
+    if desde:
+        filtro += " AND fecha >= CAST(:desde AS DATE)"
+        parametros["desde"] = desde
+    if hasta:
+        filtro += " AND fecha < CAST(:hasta AS DATE)"
+        parametros["hasta"] = hasta
     filas = _consultar(
-        """
+        f"""
         SELECT fecha::text AS fecha,
                consumo_total_kwh,
                consumo_promedio_kwh,
@@ -230,10 +244,11 @@ def _serie_diaria(dias: int) -> list[dict]:
                num_lecturas,
                perdidas_comunicacion
         FROM datamart.dm_kpi_diarios
+        WHERE 1 = 1{filtro}
         ORDER BY fecha DESC
         LIMIT :dias
         """,
-        {"dias": dias},
+        parametros,
     )
     return list(reversed(filas))
 
@@ -290,30 +305,33 @@ def obtener_resumen_sistema() -> dict[str, Any]:
                 "se muestra la más reciente."
             )
 
-    integridad = _integridad()
-    lecturas_energia = integridad.get("lecturas_energia") or 0
-    lecturas_datamart = integridad.get("lecturas_datamart") or 0
+    # dm_validacion_integridad recorre 10.8 M lecturas: se consulta solo cuando
+    # el usuario pide integridad, no en un resumen general.
     datos = {
         **resumen,
         "semilla": corrida.get("semilla"),
         "version_reglas": corrida.get("version_reglas"),
         "fecha_desde": corrida.get("fecha_desde"),
         "fecha_hasta": corrida.get("fecha_hasta"),
-        "lecturas_energia": lecturas_energia,
-        "lecturas_datamart": lecturas_datamart,
-        "diferencia_lecturas": round(
-            float(lecturas_energia) - float(lecturas_datamart), 4
-        ),
         "nota_corrida": nota,
     }
     return _paquete(
         "obtener_resumen_sistema",
         [
             "datamart.dm_resumen_general",
-            "datamart.dm_validacion_integridad",
             "energia.corrida_generacion",
         ],
         datos,
+    )
+
+
+def validar_integridad_datamart() -> dict[str, Any]:
+    """Compara catálogos y lecturas entre energia y datamart."""
+    return _paquete(
+        "validar_integridad_datamart",
+        ["datamart.dm_validacion_integridad"],
+        _integridad(),
+        metodo="validación de congruencias entre esquemas",
     )
 
 
@@ -321,8 +339,14 @@ def consultar_zonas(
     zona_nombre: str | None = None,
     orden_por: str = "consumo",
     limite: int = 10,
+    desde: str | None = None,
+    hasta: str | None = None,
 ) -> dict[str, Any]:
-    """Filtra, compara o rankea zonas usando consumo, anomalías y catálogo."""
+    """Filtra, compara o rankea zonas usando consumo, anomalías y catálogo.
+
+    ``desde`` y ``hasta`` acotan lecturas y eventos a un rango mensual. El
+    extremo superior es abierto, así que se entrega como ``YYYY-MM-DD``.
+    """
     zona = _texto_seguro(zona_nombre)
     orden = str(orden_por or "consumo").strip().lower()
     columna, direccion = ORDEN_ZONAS.get(orden, ORDEN_ZONAS["consumo"])
@@ -359,6 +383,8 @@ def consultar_zonas(
             FROM energia.lectura l
             JOIN medidores m ON m.id_medidor = l.id_medidor
             JOIN servicios s ON s.id_servicio = m.id_servicio
+            WHERE (CAST(:desde AS DATE) IS NULL OR l.ts >= CAST(:desde AS DATE))
+              AND (CAST(:hasta AS DATE) IS NULL OR l.ts < CAST(:hasta AS DATE))
             GROUP BY s.id_zona
         ),
         anomalias AS (
@@ -368,6 +394,8 @@ def consultar_zonas(
             FROM energia.evento e
             JOIN medidores m ON m.id_medidor = e.id_medidor
             JOIN servicios s ON s.id_servicio = m.id_servicio
+            WHERE (CAST(:desde AS DATE) IS NULL OR e.ts_inicio >= CAST(:desde AS DATE))
+              AND (CAST(:hasta AS DATE) IS NULL OR e.ts_inicio < CAST(:hasta AS DATE))
             GROUP BY s.id_zona
         )
         SELECT zf.nombre AS zona,
@@ -388,9 +416,16 @@ def consultar_zonas(
         ORDER BY {columna} {direccion} NULLS LAST, zf.nombre ASC
         LIMIT :limite
         """,
-        {"zona": zona, "limite": tope},
+        {"zona": zona, "limite": tope, "desde": desde, "hasta": hasta},
     )
-    periodo = "Acumulado enero–marzo de 2026 (90 días). No es promedio mensual."
+    if desde and hasta:
+        try:
+            dias = (date.fromisoformat(hasta) - date.fromisoformat(desde)).days
+            periodo = f"Periodo: {desde} a {hasta} ({dias} días naturales)."
+        except ValueError:
+            periodo = f"Periodo: {desde} a {hasta}."
+    else:
+        periodo = "Acumulado enero–marzo de 2026 (90 días). No es promedio mensual."
     datos = {
         "zonas": filas,
         "filtro_zona": zona,
@@ -421,6 +456,92 @@ def consultar_zonas(
                 {"clave": "consumo_total_kwh", "etiqueta": "Consumo real (kWh)"},
                 {"clave": "consumo_reportado_kwh", "etiqueta": "Consumo reportado (kWh)"},
             ],
+            filas,
+            subtitulo=periodo,
+        ),
+    )
+
+
+@_ttl_cache(TTL_SEGUNDOS)
+def consultar_desviacion_zonal(
+    zona_nombre: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+) -> dict[str, Any]:
+    """Desviación y anomalías por zona desde agregados mensuales del datamart.
+
+    Las vistas ``dm_*`` son agregados de mes, no escanean ``energia.lectura``.
+    El extremo superior del rango es abierto y se entrega como ``YYYY-MM-DD``.
+    """
+    zona = _texto_seguro(zona_nombre)
+    parametros: dict[str, Any] = {}
+    filtro_consumo = ""
+    filtro_anomalias = ""
+    if desde:
+        filtro_consumo += " AND c.mes >= CAST(:desde AS DATE)"
+        filtro_anomalias += " AND a.mes >= CAST(:desde AS DATE)"
+        parametros["desde"] = desde
+    if hasta:
+        filtro_consumo += " AND c.mes < CAST(:hasta AS DATE)"
+        filtro_anomalias += " AND a.mes < CAST(:hasta AS DATE)"
+        parametros["hasta"] = hasta
+
+    filas = _consultar(
+        f"""
+        WITH consumo AS (
+            SELECT c.id_zona,
+                   c.zona,
+                   SUM(c.consumo_real_kwh) AS consumo_total_kwh
+            FROM datamart.dm_consumo_zona_mensual c
+            WHERE (CAST(:zona AS TEXT) IS NULL
+                   OR c.zona ILIKE '%' || CAST(:zona AS TEXT) || '%')
+            {filtro_consumo}
+            GROUP BY c.id_zona, c.zona
+        ),
+        anomalias AS (
+            SELECT a.id_zona,
+                   SUM(a.kwh_desviados) AS kwh_desviados,
+                   SUM(a.num_eventos) AS num_eventos
+            FROM datamart.dm_anomalias_zona a
+            WHERE (CAST(:zona AS TEXT) IS NULL
+                   OR a.zona ILIKE '%' || CAST(:zona AS TEXT) || '%')
+            {filtro_anomalias}
+            GROUP BY a.id_zona
+        )
+        SELECT c.zona,
+               c.consumo_total_kwh,
+               COALESCE(a.kwh_desviados, 0) AS kwh_desviados,
+               COALESCE(a.num_eventos, 0) AS num_eventos
+        FROM consumo c
+        LEFT JOIN anomalias a ON a.id_zona = c.id_zona
+        ORDER BY c.consumo_total_kwh DESC, c.zona ASC
+        LIMIT 46
+        """,
+        {"zona": zona, **parametros},
+    )
+    if desde and hasta:
+        periodo = f"Periodo: {desde} a {hasta}."
+    else:
+        periodo = "Acumulado enero–marzo de 2026 (90 días). No es promedio mensual."
+    datos = {
+        "zonas": filas,
+        "filtro_zona": zona,
+        "total_resultados": len(filas),
+        "periodo": periodo,
+    }
+    return _paquete(
+        "consultar_desviacion_zonal",
+        [
+            "datamart.dm_consumo_zona_mensual",
+            "datamart.dm_anomalias_zona",
+        ],
+        datos,
+        metodo="agregados mensuales verificados",
+        visualizacion=_grafica(
+            "barras",
+            "Desviación por zona",
+            "zona",
+            [{"clave": "kwh_desviados", "etiqueta": "kWh desviados"}],
             filas,
             subtitulo=periodo,
         ),
@@ -611,6 +732,8 @@ def consultar_alertas_y_medidores(
 def obtener_serie_diaria_y_horaria(
     dias: int = 30,
     tipo_servicio: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
 ) -> dict[str, Any]:
     """Devuelve la serie diaria del datamart y el perfil horario del catálogo."""
     try:
@@ -621,7 +744,7 @@ def obtener_serie_diaria_y_horaria(
         horizonte = 30
     servicio = _texto_seguro(tipo_servicio, 14)
 
-    diaria = _serie_diaria(horizonte)
+    diaria = _serie_diaria(horizonte, desde, hasta)
     horaria = _perfil_horario(servicio)
     fuentes = ["datamart.dm_kpi_diarios", "energia.perfil_carga_horaria"]
     if servicio:
@@ -688,6 +811,8 @@ def validar_sql_lectura(sql: str) -> str:
     for palabra in PALABRAS_SQL_PROHIBIDAS:
         if re.search(rf"\b{palabra}\b", sin_literales, re.IGNORECASE):
             raise ValueError(f"operación SQL no permitida: {palabra}")
+    if re.search(r"\bpg_[a-z_]+\b", sin_literales, re.IGNORECASE):
+        raise ValueError("funciones y catálogos de sistema no permitidos")
     if ";" in sin_literales:
         raise ValueError("solo se permite una sentencia por consulta")
     return consulta
@@ -745,7 +870,7 @@ def consultar_agregados(
         parametros["dias"] = horizonte
         condiciones.append(
             "fecha >= (SELECT MAX(fecha) FROM datamart.dm_kpi_diarios) "
-            "- CAST(:dias AS integer)"
+            "- (CAST(:dias AS integer) - 1)"
         )
 
     _where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
@@ -779,10 +904,19 @@ def consultar_agregados(
 HERRAMIENTAS_SQL: dict[str, dict[str, Any]] = {
     "obtener_resumen_sistema": {
         "descripcion": (
-            "Resumen general, integridad del datamart y corrida con semilla 20260103."
+            "Resumen general de lecturas, servicios, medidores, zonas y corrida "
+            "con semilla 20260103. No recalcula integridad."
         ),
         "parametros": {"type": "object", "properties": {}, "additionalProperties": False},
         "funcion": obtener_resumen_sistema,
+    },
+    "validar_integridad_datamart": {
+        "descripcion": (
+            "Compara lecturas, servicios, medidores y zonas entre energia y el "
+            "datamart. Consulta costosa: solo se usa cuando se pide integridad."
+        ),
+        "parametros": {"type": "object", "properties": {}, "additionalProperties": False},
+        "funcion": validar_integridad_datamart,
     },
     "consultar_zonas": {
         "descripcion": (
@@ -807,10 +941,47 @@ HERRAMIENTAS_SQL: dict[str, dict[str, Any]] = {
                     "maximum": 46,
                     "description": "Número máximo de zonas a devolver.",
                 },
+                "desde": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha inicial del rango, YYYY-MM-DD, inclusiva.",
+                },
+                "hasta": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha final del rango, YYYY-MM-DD, exclusiva.",
+                },
             },
             "additionalProperties": False,
         },
         "funcion": consultar_zonas,
+    },
+    "consultar_desviacion_zonal": {
+        "descripcion": (
+            "Desviación y eventos de anomalía por zona desde los agregados mensuales "
+            "del datamart. Consulta ligera, sin escanear lecturas horarias."
+        ),
+        "parametros": {
+            "type": "object",
+            "properties": {
+                "zona_nombre": {
+                    "type": "string",
+                    "description": "Nombre o fragmento del nombre de zona.",
+                },
+                "desde": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha inicial inclusiva YYYY-MM-DD.",
+                },
+                "hasta": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha final exclusiva YYYY-MM-DD.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        "funcion": consultar_desviacion_zonal,
     },
     "consultar_servicios_y_tarifas": {
         "descripcion": (
@@ -862,6 +1033,16 @@ HERRAMIENTAS_SQL: dict[str, dict[str, Any]] = {
                 "tipo_servicio": {
                     "type": "string",
                     "description": "Clave opcional de tipo de servicio.",
+                },
+                "desde": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha inicial inclusiva YYYY-MM-DD.",
+                },
+                "hasta": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "Fecha final exclusiva YYYY-MM-DD.",
                 },
             },
             "additionalProperties": False,
@@ -952,12 +1133,12 @@ SUGERENCIAS: list[dict[str, str]] = [
     },
     {
         "intent": "tendencia",
-        "pregunta": "Proyección de consumo a 15 días con intervalo de confianza",
+        "pregunta": "Proyección de consumo a 15 días con banda de predicción",
         "descripcion": "Estimación estadística verificada",
     },
     {
         "intent": "concepto",
-        "pregunta": "¿Qué significa Tarifa DAC y cuáles son sus umbrales?",
+        "pregunta": "¿Qué significa Tarifa DAC según SIMET?",
         "descripcion": "Glosario conceptual de SIMET",
     },
 ]
