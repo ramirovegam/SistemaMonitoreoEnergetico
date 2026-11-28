@@ -596,7 +596,7 @@ export default function App() {
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="h-10 w-10 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Abrir menú de navegación"
           >
@@ -614,7 +614,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="ml-auto flex h-9 min-w-0 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 text-left text-sm text-muted transition-colors hover:border-border-strong hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] sm:min-w-[240px] lg:min-w-[300px]"
+            className="ml-auto flex h-10 min-w-10 items-center gap-2 rounded-lg border border-border bg-surface-2 px-2.5 text-left text-sm text-muted transition-colors hover:border-border-strong hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)] sm:min-w-[240px] lg:min-w-[300px]"
             aria-label="Buscar o navegar (Ctrl o Cmd + K)"
           >
             <Search aria-hidden="true" size={16} className="shrink-0" />
@@ -631,7 +631,7 @@ export default function App() {
               variant="secondary"
               size="sm"
               onClick={() => changePage("alertas")}
-              className="relative gap-1.5"
+              className="relative gap-1.5 min-h-10 min-w-10"
               aria-label={`Abrir alertas: ${alertCount} activas`}
             >
               <Bell aria-hidden="true" size={16} />

@@ -48,7 +48,7 @@ export function ThemeMenu({ compact = false }: { compact?: boolean }) {
         aria-controls={open ? panelId : undefined}
         aria-label="Cambiar tema y color de acento"
         onClick={() => setOpen((current) => !current)}
-        className={compact ? undefined : "gap-2"}
+        className={compact ? "h-10 w-10" : "gap-2"}
       >
         <Palette aria-hidden="true" size={15} className="text-accent-strong" />
         {compact ? null : (

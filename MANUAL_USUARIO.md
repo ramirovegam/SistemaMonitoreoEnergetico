@@ -24,9 +24,9 @@ Si la URL base del backend es otra, se define en `VITE_API_URL` antes de constru
 
 El menú lateral agrupa nueve pantallas en tres bloques: Operación, Análisis y Administración. La navegación usa rutas `#/<slug>` estables. Puede copiar la URL, recargar la página o abrirla en otra pestaña: la pantalla correcta se restaura desde el hash.
 
-El buscador del encabezado abre la paleta de comandos con `Ctrl + K` o `Cmd + K`. Permite buscar y saltar a cualquier pantalla.
-
-El botón de campana muestra el número de alertas. El selector de tema permite elegir modo claro, oscuro o del sistema, y acento de color.
+- **Paleta de comandos:** use el atajo `Ctrl + K` o `Cmd + K` para abrir la paleta de comandos. Escriba el nombre de una pantalla para buscarla y abrirla.
+- **Campana de alertas:** muestra el número de alertas.
+- **Selector de tema:** permite elegir modo claro, modo oscuro o tema del sistema, y cambiar el acento de color.
 
 ## 3. Pantallas
 
@@ -47,10 +47,10 @@ Toda la interfaz consume los datos que sirve la API. El volumen servido es sint�
 ## 4. Filtros y acciones
 
 - **Zonas:** seleccione zona, mes de análisis y criterio de ordenamiento. El ranking y los indicadores se recalculan al cambiar el mes.
-- **Medidores:** búsqueda por ID, serie, marca, RPU o servicio; filtros por zona, marca y estado; vistas de lista y cuadrícula; paginación.
+- **Medidores:** busque un medidor por ID, serie, marca, RPU o servicio en el campo de búsqueda. Los filtros son por zona, marca y estado. Puede cambiar entre vista de lista y cuadrícula.
 - **Calendario:** navegue por año y seleccione meses. Al abrir un día se muestran temperatura, tipo de día y factor estacional.
 - **Análisis energético:** seleccione un medidor. La zona, el servicio y el RPU se cargan de forma automática.
-- **Historial de lecturas:** filtre por medidor y rango; exporte el resultado a CSV.
+- **Historial de lecturas:** filtre por medidor y rango de fechas, y pulse **Exportar CSV** para descargar las lecturas. Use **Detectar huecos** para ver los intervalos sin lectura.
 - **Alertas y tarifas:** revise prioridad, estado y servicios asignados.
 
 Los controles tienen un área táctil mínima de 40 px y etiquetas accesibles. Las tablas y listas conservan el foco de teclado al actualizarse.
@@ -91,3 +91,15 @@ Ejecutada el 24 de noviembre de 2026 en el entorno de auditoría:
 | Nueve rutas del panel con backend caído | Títulos correctos, sin desbordamiento horizontal a 1280 px, mensaje de error y opción de reintento |
 
 El backend compila con `python -m compileall` sobre `backend` y los scripts de la raíz. `requirements.txt` declara `numpy==2.4.4`, necesario para importar el router del generador HSD.
+
+## 9. Guías de consulta
+
+- **Medidores · Buscar por RPU:** abra Medidores y escriba el RPU en el campo **Buscar medidores** (también admite ID, serie, marca o servicio). Identifique el número de serie del medidor en el resultado; lo puede usar para seleccionar el mismo equipo en Historial de lecturas. Si no encuentra el resultado, revise el RPU y los filtros de zona, marca y estado.
+
+- **Historial de lecturas · Consultar por fechas:** en Historial de lecturas, seleccione el número de serie en **Medidor**. Elija el mes en **Periodo** o active **Rango personalizado** y complete **Desde** y **Hasta**. La consulta se actualiza al cambiar el medidor o las fechas.
+
+- **Historial de lecturas · Exportar CSV:** seleccione el medidor y el rango de fechas. Pulse **Exportar CSV** para descargar las lecturas del medidor en ese periodo. Para descargar solo las filas visibles de la página actual, con los filtros de estado y tipo de día aplicados, use **Exportar filtradas**.
+
+- **Historial de lecturas · Detectar huecos:** seleccione el medidor y el rango de fechas y pulse **Detectar huecos**. La sección **Intervalos sin lectura** muestra el inicio y fin de cada hueco, su duración y cuántas lecturas se estima que faltan. Use **Exportar huecos** para descargar ese listado.
+
+- **Historial de lecturas · Sin datos:** si aparece «No se encontraron lecturas para los filtros seleccionados» o la tabla queda sin resultados, compruebe el medidor y el periodo o rango de fechas. En **Estado de lectura**, seleccione **Todas**; en **Tipo de día**, seleccione **Todos**. Si la consulta sigue vacía, seleccione un rango para el que el medidor tenga lecturas. El mensaje indica que no hay filas visibles para la selección actual; no confirma un fallo de la API.

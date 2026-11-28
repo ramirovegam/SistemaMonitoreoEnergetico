@@ -535,6 +535,7 @@ function TarjetaRespuesta({
     () => construirGrafica(respuesta ?? null),
     [respuesta],
   );
+  const usaFuenteLocal = respuesta?.modo !== "datos" && respuesta?.metodo !== "búsqueda documental";
   const sugerenciasSiguientes =
     respuesta?.modo === "datos"
       ? ["Explícame la fuente de estos datos", "Calcula el factor de carga del sistema"]
@@ -580,7 +581,7 @@ function TarjetaRespuesta({
             <Button
               variant="ghost"
               size="xs"
-              className="mt-2"
+              className="mt-2 min-h-10"
               onClick={onReintentar}
             >
               Reintentar
@@ -628,7 +629,7 @@ function TarjetaRespuesta({
                 />
                 Fuentes verificadas
                 <span className="ml-auto text-[10px] text-muted-2">
-                  {respuesta.fuentes.length || (respuesta.modo !== "datos" ? 1 : 0)}
+                  {respuesta.fuentes.length || (usaFuenteLocal ? 1 : 0)}
                 </span>
               </summary>
               <div className="flex flex-wrap gap-1.5 border-t border-border px-3 py-2">
@@ -641,13 +642,13 @@ function TarjetaRespuesta({
                       {fuente}
                     </span>
                   ))
-                ) : respuesta.modo !== "datos" ? (
+                ) : usaFuenteLocal ? (
                   <span className="text-[10px] text-muted-2">
                     Base de Conocimiento SIMET
                   </span>
                 ) : (
                   <span className="text-[10px] text-muted-2">
-                    Sin fuentes de datos en esta respuesta
+                    Sin fuentes verificadas en esta respuesta
                   </span>
                 )}
               </div>
@@ -716,7 +717,7 @@ function TarjetaRespuesta({
                 key={pregunta}
                 type="button"
                 onClick={() => onElegir(pregunta)}
-                className="rounded-full border border-border bg-surface px-2 py-1 text-[10px] text-muted transition-colors hover:border-accent hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
+                className="inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-3 py-1 text-[10px] text-muted transition-colors hover:border-accent hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus)]"
               >
                 {pregunta}
               </button>
@@ -729,6 +730,7 @@ function TarjetaRespuesta({
             <Button
               variant="ghost"
               size="xs"
+              className="min-h-10 min-w-10"
               onClick={onRegenerar}
               aria-label="Regenerar respuesta"
             >
@@ -738,6 +740,7 @@ function TarjetaRespuesta({
           <Button
             variant="ghost"
             size="xs"
+            className="min-h-10 min-w-10"
             onClick={onCopiar}
             disabled={!mensaje.texto}
             aria-label="Copiar respuesta"
@@ -1011,6 +1014,7 @@ export default function Asistente() {
               size="sm"
               onClick={() => void copiarConversacion()}
               disabled={mensajes.length === 0}
+              className="min-h-10"
             >
               <Copy size={15} aria-hidden="true" />
               {copiado === -1 ? "Copiado" : "Copiar todo"}
@@ -1020,6 +1024,7 @@ export default function Asistente() {
               size="sm"
               onClick={limpiar}
               disabled={mensajes.length === 0 && !entrada}
+              className="min-h-10"
             >
               <Eraser size={15} aria-hidden="true" />
               Nueva consulta
