@@ -221,7 +221,7 @@ psql -h 127.0.0.1 -p 5432 -U simet_app -d energia_hsd -v ON_ERROR_STOP=1 -f docs
 .\ven\Scripts\python.exe -m backend.app.services.rag
 ```
 
-El primer comando debe imprimir `DATAMART_CREATED`; el segundo concede lectura en `energia` y `datamart`. El tercero descarga el modelo de Hugging Face en la primera ejecución y genera el índice local; la versión actual indexa **23 pasajes de 1,024 dimensiones**. Regenera el índice si cambia el corpus o el modelo. Consulta la [sección del RAG](#156-búsqueda-documental-rag) para validar por separado la redacción en la nube.
+El primer comando debe imprimir `DATAMART_CREATED`; el segundo concede lectura en `energia` y `datamart`. El tercero descarga el modelo de Hugging Face en la primera ejecución y genera el índice local de 1,024 dimensiones. Regenera el índice si cambia el corpus, el manual o el modelo. Consulta la [sección del RAG](#156-búsqueda-documental-rag) para validar por separado la redacción en la nube.
 
 ### 4.5 Arrancar la API y el frontend
 

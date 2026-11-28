@@ -273,6 +273,7 @@ def _responder(body: ConsultaRequest) -> ConsultaResponse:
         }
         if aviso_estimacion:
             payload["aviso"] = aviso_estimacion
+        respuesta_local = llm.narrar_resumen(body.pregunta, payload)
 
     if respuesta_local is not None:
         texto, aviso_redaccion, origen = respuesta_local, None, "local"

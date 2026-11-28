@@ -13,7 +13,7 @@ from uuid import uuid4
 import numpy as np
 
 from backend.app.services import rag, rag_cerebras, rag_embeddings
-from backend.app.services.rag_corpus import cargar_corpus
+from backend.app.services.rag_corpus import SECCION_GUIAS, cargar_corpus
 
 
 CASOS_DOCUMENTALES = (
@@ -34,7 +34,13 @@ CASOS_DOCUMENTALES = (
     ("¿Cómo busco la carga contratada?", "Servicios"),
     ("¿Dónde consulto curvas horarias y perfiles?", "Análisis energético"),
     ("¿Qué significa el estado Sin datos?", "Sin datos"),
+    ("¿Qué hago si el Historial de lecturas aparece sin datos después de filtrar?", "Historial de lecturas · Sin datos"),
+    ("¿Cómo veo las lecturas de un medidor entre dos fechas?", "Historial de lecturas · Consultar por fechas"),
+    ("¿Cuál es la diferencia entre Exportar CSV y Exportar filtradas?", "Historial de lecturas · Exportar CSV"),
 )
+CONSULTA_RPU_Y_FECHAS = "¿Cómo busco un medidor por RPU y consulto sus lecturas en un rango de fechas?"
+CONSULTA_HUECOS_Y_CSV = "¿Cómo detecto huecos y exporto las lecturas a CSV?"
+CONSULTA_LECTURAS_Y_SEMILLA = "¿Cuántas lecturas hay y con qué semilla se generó?"
 CASOS_SIN_EVIDENCIA = (
     "¿Cómo cambio mi contraseña en SIMET?",
     "¿Dónde activo la autenticación con huella digital?",
@@ -50,6 +56,31 @@ class TestRagLocal(unittest.TestCase):
         exportacion = next(p for p in pasajes if "Exportar CSV" in p.texto)
         self.assertEqual(exportacion.ruta, "#/lecturas")
         self.assertIn("Detectar huecos", exportacion.texto)
+
+    def test_guia_tiene_su_ruta_y_cita(self):
+        pasajes, _ = cargar_corpus()
+        guias = {p.tema: p for p in pasajes if p.seccion == SECCION_GUIAS}
+        self.assertEqual(guias["Medidores · Buscar por RPU"].ruta, "#/medidores")
+        sin_datos = guias["Historial de lecturas · Sin datos"]
+        self.assertEqual(sin_datos.ruta, "#/lecturas")
+        self.assertIn("Guías de consulta", sin_datos.fuente)
+
+    def test_respuesta_combinada_conserva_las_rutas_de_las_citas(self):
+        pasajes, _ = cargar_corpus()
+        guias = {p.tema: p for p in pasajes if p.seccion == SECCION_GUIAS}
+        rpu = guias["Medidores · Buscar por RPU"]
+        fechas = guias["Historial de lecturas · Consultar por fechas"]
+        indice = rag.Indice((rpu, fechas), np.zeros((2, rag_embeddings.DIMENSIONES)))
+        texto = "- Busque por RPU.\n- Seleccione el número de serie y las fechas."
+        with (
+            patch.object(rag, "_indice", return_value=indice),
+            patch.object(rag, "vector_consulta", return_value=indice.vectores[0]),
+            patch.object(rag, "recuperar", return_value=[rpu, fechas]),
+            patch.object(rag, "_redactar", return_value=(texto, [rpu, fechas])),
+        ):
+            respuesta = rag.responder(CONSULTA_RPU_Y_FECHAS)
+        self.assertIn("Rutas en SIMET: `#/medidores`, `#/lecturas`.", respuesta.texto)
+        self.assertEqual(respuesta.fuentes, (rpu.fuente, fechas.fuente))
 
     def test_respaldo_textual_sin_embeddings(self):
         pasajes, _ = cargar_corpus()
@@ -74,6 +105,18 @@ class TestRagLocal(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValueError, "controles sin fuente"):
                 rag._redactar("¿Dónde está la carga contratada?", [servicios])
+
+    def test_numeros_de_lista_no_son_cifras_operativas(self):
+        pasajes, _ = cargar_corpus()
+        fechas = next(p for p in pasajes if p.tema == "Historial de lecturas · Consultar por fechas")
+        texto = "1. Seleccione el número de serie en **Medidor**.\n2. Active **Rango personalizado**."
+        salida = {"respuesta": texto, "citas": [1]}
+        with patch.object(rag_cerebras, "redactar", return_value=json.dumps(salida)):
+            self.assertEqual(rag._redactar(CONSULTA_RPU_Y_FECHAS, [fechas]), (texto, [fechas]))
+        salida["respuesta"] = f"{texto}\n3. Seleccione los últimos 15 días."
+        with patch.object(rag_cerebras, "redactar", return_value=json.dumps(salida)):
+            with self.assertRaisesRegex(ValueError, "cifras sin fuente"):
+                rag._redactar(CONSULTA_RPU_Y_FECHAS, [fechas])
 
     def test_cerebras_redacta_con_citas_que_verifica_simet(self):
         pasajes, _ = cargar_corpus()
@@ -123,7 +166,16 @@ class TestRagEnVivo(unittest.TestCase):
         for pregunta, tema in CASOS_DOCUMENTALES:
             with self.subTest(pregunta=pregunta):
                 pasajes = rag.recuperar(indice, pregunta, rag.vector_consulta(pregunta))
-                self.assertIn(tema, [pasaje.tema for pasaje in pasajes])
+                temas = {pasaje.tema for pasaje in pasajes}
+                self.assertIn(tema, temas | {nombre.partition(" · ")[0] for nombre in temas})
+        combinadas = (
+            (CONSULTA_RPU_Y_FECHAS, {"Medidores · Buscar por RPU", "Historial de lecturas · Consultar por fechas"}),
+            (CONSULTA_HUECOS_Y_CSV, {"Historial de lecturas · Detectar huecos", "Historial de lecturas · Exportar CSV"}),
+        )
+        for pregunta, esperados in combinadas:
+            with self.subTest(pregunta=pregunta):
+                pasajes = rag.recuperar(indice, pregunta, rag.vector_consulta(pregunta))
+                self.assertTrue(esperados <= {pasaje.tema for pasaje in pasajes})
         for pregunta in CASOS_SIN_EVIDENCIA:
             with self.subTest(pregunta=pregunta):
                 self.assertFalse(rag.recuperar(indice, pregunta, rag.vector_consulta(pregunta)))
@@ -168,10 +220,31 @@ class TestRagEnVivo(unittest.TestCase):
         self.assertEqual(capacidades["modo"], "conversacional")
         self.assertEqual(capacidades["origen"], "local")
 
-        datos = consultar("¿Cuántas lecturas hay y con qué semilla se generó?")
+        datos = consultar(CONSULTA_LECTURAS_Y_SEMILLA)
         self.assertEqual(datos["modo"], "datos")
+        self.assertEqual(datos["origen"], "local")
         self.assertIn("datamart.dm_resumen_general", datos["fuentes"])
         self.assertEqual(datos["datos"]["total_lecturas"], 10_800_000)
+        self.assertIn("10,800,000.", datos["respuesta"])
+        self.assertIn("`20260103`", datos["respuesta"])
+        self.assertNotIn("20,260,103", datos["respuesta"])
+        self.assertNotIn("Medidores registrados", datos["respuesta"])
+
+        sin_datos = consultar(CASOS_DOCUMENTALES[-3][0])
+        self.assertEqual(sin_datos["metodo"], rag.METODO)
+        self.assertIn("Estado de lectura", sin_datos["respuesta"])
+        self.assertTrue(any(fuente.endswith("Historial de lecturas · Sin datos") for fuente in sin_datos["fuentes"]))
+
+        exportaciones = consultar(CASOS_DOCUMENTALES[-1][0])
+        self.assertEqual(exportaciones["metodo"], rag.METODO)
+        self.assertIn("Exportar filtradas", exportaciones["respuesta"])
+
+        if os.getenv("SIMET_RAG_EXIGIR_CEREBRAS") == "1":
+            recorrido = consultar(CONSULTA_RPU_Y_FECHAS)
+            self.assertEqual(recorrido["origen"], "llm", recorrido["aviso"])
+            self.assertIn("Rango personalizado", recorrido["respuesta"])
+            self.assertIn("#/medidores", recorrido["respuesta"])
+            self.assertIn("#/lecturas", recorrido["respuesta"])
 
         oficial = consultar("¿Tienes un pronóstico oficial de consumo?")
         self.assertIn("SIMET no almacena pronósticos oficiales", oficial["respuesta"])

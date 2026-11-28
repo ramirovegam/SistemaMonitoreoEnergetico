@@ -10,6 +10,7 @@ from pathlib import Path
 _RAIZ = Path(__file__).resolve().parents[3]
 _CORPUS = _RAIZ / "docs/base_conocimiento/CORPUS_OPERATIVO_SIMET.md"
 _MANUAL = _RAIZ / "MANUAL_USUARIO.md"
+SECCION_GUIAS = "Guías de consulta"
 _SECCIONES_MANUAL = {
     "Navegación": ("- **",),
     "Filtros y acciones": ("- **",),
@@ -19,6 +20,7 @@ _SECCIONES_MANUAL = {
         "- **Sin datos:**",
         "- **Error:**",
     ),
+    SECCION_GUIAS: ("- **",),
 }
 
 
@@ -87,7 +89,11 @@ def cargar_corpus() -> tuple[list[Pasaje], str]:
                 tema, texto = elemento.groups() if elemento else (prefijo, bloque)
                 if len(texto) > 1800:
                     raise ValueError(f"Divida el pasaje «{tema}» antes de indexarlo.")
-                pasajes.append(_pasaje("Manual de usuario", seccion, tema, texto, rutas.get(tema)))
+                pantalla = tema.partition(" · ")[0]
+                ruta = rutas.get(pantalla)
+                if seccion == SECCION_GUIAS and not ruta:
+                    raise ValueError(f"La guía «{tema}» debe indicar una pantalla conocida.")
+                pasajes.append(_pasaje("Manual de usuario", seccion, tema, texto, ruta))
 
     if len({pasaje.id for pasaje in pasajes}) != len(pasajes):
         raise ValueError("Hay pasajes duplicados en la documentación seleccionada.")

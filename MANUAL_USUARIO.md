@@ -91,3 +91,15 @@ Ejecutada el 24 de noviembre de 2026 en el entorno de auditoría:
 | Nueve rutas del panel con backend caído | Títulos correctos, sin desbordamiento horizontal a 1280 px, mensaje de error y opción de reintento |
 
 El backend compila con `python -m compileall` sobre `backend` y los scripts de la raíz. `requirements.txt` declara `numpy==2.4.4`, necesario para importar el router del generador HSD.
+
+## 9. Guías de consulta
+
+- **Medidores · Buscar por RPU:** abra Medidores y escriba el RPU en el campo **Buscar medidores** (también admite ID, serie, marca o servicio). Identifique el número de serie del medidor en el resultado; lo puede usar para seleccionar el mismo equipo en Historial de lecturas. Si no encuentra el resultado, revise el RPU y los filtros de zona, marca y estado.
+
+- **Historial de lecturas · Consultar por fechas:** en Historial de lecturas, seleccione el número de serie en **Medidor**. Elija el mes en **Periodo** o active **Rango personalizado** y complete **Desde** y **Hasta**. La consulta se actualiza al cambiar el medidor o las fechas.
+
+- **Historial de lecturas · Exportar CSV:** seleccione el medidor y el rango de fechas. Pulse **Exportar CSV** para descargar las lecturas del medidor en ese periodo. Para descargar solo las filas visibles de la página actual, con los filtros de estado y tipo de día aplicados, use **Exportar filtradas**.
+
+- **Historial de lecturas · Detectar huecos:** seleccione el medidor y el rango de fechas y pulse **Detectar huecos**. La sección **Intervalos sin lectura** muestra el inicio y fin de cada hueco, su duración y cuántas lecturas se estima que faltan. Use **Exportar huecos** para descargar ese listado.
+
+- **Historial de lecturas · Sin datos:** si aparece «No se encontraron lecturas para los filtros seleccionados» o la tabla queda sin resultados, compruebe el medidor y el periodo o rango de fechas. En **Estado de lectura**, seleccione **Todas**; en **Tipo de día**, seleccione **Todos**. Si la consulta sigue vacía, seleccione un rango para el que el medidor tenga lecturas. El mensaje indica que no hay filas visibles para la selección actual; no confirma un fallo de la API.

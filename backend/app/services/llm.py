@@ -734,12 +734,26 @@ def _plan_determinista(
 def _solicita_documentacion(texto: str) -> bool:
     if re.search(r"\b(?:donde|en que (?:pantalla|vista|seccion|menu|parte|pestana))\b", texto):
         return True
+    if re.search(r"\b(?:exportar csv|exportar filtradas|exportar huecos)\b", texto):
+        return True
+    consulta_de_ayuda = re.search(
+        r"\b(?:que (?:hago|puedo hacer|debo hacer) (?:si|cuando)|"
+        r"como (?:puedo |podria |debo )?(?:resolv\w+|solucion\w+|arregl\w+|corrig\w+)|"
+        r"por que)\b",
+        texto,
+    )
+    if consulta_de_ayuda and re.search(
+        r"\b(?:pantalla|vista|historial|panel|tabla|filtr\w+|sin datos|sin lecturas|"
+        r"no (?:veo|aparecen|salen|se encontraron) lecturas|export\w+)\b",
+        texto,
+    ):
+        return True
     return bool(re.search(
         r"\b(?:como|que pasos(?: debo)?(?: seguir)? para) "
         r"(?:(?:puedo|podria|se|debo|hago para) )?"
         r"(?:abr\w+|acced\w+|entr\w+|naveg\w+|busc\w+|encontr\w+|consult\w+|revis\w+|"
         r"identific\w+|detect\w+|filtr\w+|seleccion\w+|cambi\w+|activ\w+|desactiv\w+|"
-        r"export\w+|descarg\w+|guard\w+|configur\w+|us[ao]\w*|funcionan?)\b"
+        r"export\w+|descarg\w+|guard\w+|configur\w+|us[ao]\w*|ve[or]|funcionan?)\b"
         r"|\bque (?:muestra|muestran|filtros (?:hay|puedo usar)|significa el estado)\b",
         texto,
     ))
@@ -785,31 +799,57 @@ def _pares(datos: Any, maximo: int = 7) -> list[tuple[str, Any]]:
     return []
 
 
-def _lineas_herramienta(resultado: dict[str, Any]) -> list[str]:
+def _lineas_resumen(datos: dict[str, Any], pregunta: str) -> list[str]:
+    campos = (
+        ("total_lecturas", "Lecturas del conjunto", r"\b(?:lecturas?|mediciones?|registros?)\b"),
+        ("total_servicios", "Servicios registrados", r"\bservicios?\b"),
+        ("total_medidores", "Medidores registrados", r"\bmedidores?\b"),
+        ("total_zonas", "Zonas", r"\bzonas?\b"),
+        ("consumo_total_acumulado", "Consumo acumulado", r"\b(?:consumo|kwh)\b"),
+        ("semilla", "Semilla de generación", r"\bsemilla\b"),
+        (
+            "diferencia_lecturas",
+            "Diferencia de lecturas entre la base y el datamart",
+            r"\b(?:integridad|diferencia de lecturas|discrepancia)\b",
+        ),
+    )
+    texto = _normalizar(pregunta)
+    seleccion = tuple(campo for campo in campos if re.search(campo[2], texto))
+    periodo = re.search(r"\b(?:periodo|fechas?|rango|desde|hasta|abarca)\b", texto)
+    resumen_completo = (
+        re.search(r"\b(?:resumen (?:del sistema|general)|panorama general)\b", texto)
+        or not (seleccion or periodo)
+    )
+    if resumen_completo:
+        seleccion = campos
+    lineas = []
+    for clave, etiqueta, _ in seleccion:
+        valor = datos.get(clave)
+        if valor is None:
+            lineas.append(f"- **{etiqueta}:** no disponible.")
+        elif clave == "semilla":
+            lineas.append(f"- **{etiqueta}:** `{valor}`.")
+        elif clave == "consumo_total_acumulado":
+            lineas.append(f"- **{etiqueta}:** {_numero(valor, 2)} kWh.")
+        else:
+            lineas.append(f"- **{etiqueta}:** {_numero(valor)}.")
+    if periodo or resumen_completo:
+        desde, hasta = datos.get("fecha_desde"), datos.get("fecha_hasta")
+        rango = f"{desde} a {hasta}." if desde and hasta else "no disponible."
+        lineas.append(f"- **Periodo de la corrida:** {rango}")
+    if datos.get("nota_corrida") and (periodo or resumen_completo or "semilla" in texto):
+        lineas.append(f"\n{datos['nota_corrida']}")
+    return lineas
+
+
+def _lineas_herramienta(resultado: dict[str, Any], pregunta: str = "") -> list[str]:
     nombre = str(resultado.get("herramienta") or "herramienta")
     datos = resultado.get("datos")
     fuentes = ", ".join(f"`{fuente}`" for fuente in resultado.get("fuentes") or [])
     lineas: list[str] = []
 
     if nombre == "obtener_resumen_sistema" and isinstance(datos, dict):
-        claves = (
-            "total_lecturas",
-            "total_servicios",
-            "total_medidores",
-            "total_zonas",
-            "consumo_total_acumulado",
-            "semilla",
-            "fecha_desde",
-            "fecha_hasta",
-            "diferencia_lecturas",
-        )
-        pares = [(clave, datos[clave]) for clave in claves if clave in datos]
-        lineas.append("- **Resumen del sistema**")
-        lineas.extend(
-            f"  - `{clave.replace('_', ' ')}`: "
-            f"{_numero(valor, 2) if isinstance(valor, (int, float)) else valor}"
-            for clave, valor in pares
-        )
+        lineas.extend(_lineas_resumen(datos, pregunta))
     elif nombre == "consultar_zonas" and isinstance(datos, dict):
         filas = datos.get("zonas") or []
         lineas.append(f"- **Zonas consultadas**: {len(filas)} resultado(s).")
@@ -1060,6 +1100,23 @@ def _recortar(texto: str, limite: int = 800) -> str:
 def recortar(texto: str, limite: int = 800) -> str:
     """Recorte público para respuestas locales del orquestador."""
     return _recortar(texto, limite)
+
+
+def narrar_resumen(pregunta: str, payload: dict[str, Any]) -> str | None:
+    """Responde resúmenes con los valores verificados y sin un redactor remoto."""
+    herramientas = payload.get("herramientas") or []
+    if (
+        payload.get("modo") != "datos"
+        or payload.get("formulas_aplicadas")
+        or len(herramientas) != 1
+        or herramientas[0].get("herramienta") != "obtener_resumen_sistema"
+    ):
+        return None
+    resumen = herramientas[0]
+    if not resumen.get("fuentes"):
+        return conocimiento_simet.SIN_EVIDENCIA
+    texto = "\n".join(_lineas_herramienta(resumen, pregunta))
+    return _finalizar(texto, payload, "datos")
 
 
 def redactar(
