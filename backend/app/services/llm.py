@@ -1,8 +1,8 @@
 """Planificador y redactor del agente analítico de SIMET.
 
-El modelo elige herramientas por function calling o por un plan JSON
-estructurado. Nunca recibe la conexión a la base y no puede ejecutar SQL. Las
-cifras y las fuentes salen del resultado de las herramientas verificadas.
+El backend elige herramientas y valida sus parámetros de forma determinista.
+El modelo solo redacta. Las cifras y las fuentes salen de las herramientas
+verificadas.
 """
 
 from __future__ import annotations
@@ -514,6 +514,8 @@ def _plan_explicito(texto: str) -> bool:
 def _plan_determinista(
     pregunta: str,
     historial: list[dict[str, Any]] | None = None,
+    *,
+    documental: bool = False,
 ) -> dict[str, Any]:
     """Plan de respaldo sin lista blanca de preguntas: decide por tema."""
     historial = historial or []
@@ -563,6 +565,10 @@ def _plan_determinista(
             "respuesta": f"{prefijo}\n\n*Fuente: Base de Conocimiento SIMET.*",
         }
 
+    sql = _sql_solicitada(pregunta)
+    if documental and not sql and _solicita_documentacion(texto):
+        return {"modo": "documental"}
+
     if saludo:
         return {
             "modo": "conversacional",
@@ -582,7 +588,6 @@ def _plan_determinista(
             "respuesta": conocimiento_simet.respuesta_conversacional("capacidades"),
         }
 
-    sql = _sql_solicitada(pregunta)
     if sql:
         plan = {
             "modo": "datos",
@@ -726,9 +731,25 @@ def _plan_determinista(
     }
 
 
+def _solicita_documentacion(texto: str) -> bool:
+    if re.search(r"\b(?:donde|en que (?:pantalla|vista|seccion|menu|parte|pestana))\b", texto):
+        return True
+    return bool(re.search(
+        r"\b(?:como|que pasos(?: debo)?(?: seguir)? para) "
+        r"(?:(?:puedo|podria|se|debo|hago para) )?"
+        r"(?:abr\w+|acced\w+|entr\w+|naveg\w+|busc\w+|encontr\w+|consult\w+|revis\w+|"
+        r"identific\w+|detect\w+|filtr\w+|seleccion\w+|cambi\w+|activ\w+|desactiv\w+|"
+        r"export\w+|descarg\w+|guard\w+|configur\w+|us[ao]\w*|funcionan?)\b"
+        r"|\bque (?:muestra|muestran|filtros (?:hay|puedo usar)|significa el estado)\b",
+        texto,
+    ))
+
+
 def planificar(
     pregunta: str,
     historial: list[dict[str, Any]] | None = None,
+    *,
+    documental: bool = False,
 ) -> tuple[dict[str, Any], str | None]:
     """El plan siempre se resuelve en local; el proveedor solo redacta."""
     historial = (historial or [])[-12:]
@@ -737,7 +758,7 @@ def planificar(
             "modo": "conversacional",
             "respuesta": conocimiento_simet.FUERA_DE_ALCANCE,
         }, None
-    return _plan_determinista(pregunta, historial), None
+    return _plan_determinista(pregunta, historial, documental=documental), None
 
 
 def _numero(valor: Any, decimales: int = 0) -> str:

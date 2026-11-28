@@ -1,7 +1,7 @@
 """Endpoint del agente analítico conversacional de SIMET.
 
-Orquesta el plan del LLM, ejecuta herramientas de solo lectura y devuelve la
-respuesta con fuentes, fórmulas aplicadas y visualizaciones verificadas.
+Orquesta el plan local, la búsqueda documental y las herramientas de solo
+lectura, y devuelve la respuesta con sus fuentes.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 
 from ..schemas.asistente import ConsultaRequest, ConsultaResponse, Sugerencia
-from ..services import conocimiento_simet, estadisticas, formulas, llm
+from ..services import conocimiento_simet, estadisticas, formulas, llm, rag
 
 router = APIRouter(prefix="/api/asistente", tags=["Asistente"])
 _MAX_CLAVES = 2000
@@ -212,7 +212,21 @@ def sugerencias() -> list[Sugerencia]:
 
 def _responder(body: ConsultaRequest) -> ConsultaResponse:
     historial = [mensaje.model_dump() for mensaje in body.historial[-12:]]
-    plan, aviso_plan = llm.planificar(body.pregunta, historial)
+    plan, aviso_plan = llm.planificar(body.pregunta, historial, documental=rag.habilitado())
+    if plan.get("modo") == "documental":
+        documento = rag.responder(body.pregunta)
+        fuentes = list(documento.fuentes)
+        return ConsultaResponse(
+            pregunta=body.pregunta,
+            respuesta=llm.recortar(documento.texto),
+            fuentes=fuentes,
+            modo="conceptual",
+            origen=documento.origen,
+            aviso=documento.aviso,
+            fuente=fuentes,
+            metodo=rag.METODO,
+        )
+
     modo = plan.get("modo") if plan.get("modo") in {"conversacional", "conceptual", "datos"} else "datos"
     respuesta_local: str | None = None
     aviso_estimacion: str | None = None

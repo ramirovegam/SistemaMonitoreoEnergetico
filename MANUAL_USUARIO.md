@@ -24,9 +24,9 @@ Si la URL base del backend es otra, se define en `VITE_API_URL` antes de constru
 
 El menú lateral agrupa nueve pantallas en tres bloques: Operación, Análisis y Administración. La navegación usa rutas `#/<slug>` estables. Puede copiar la URL, recargar la página o abrirla en otra pestaña: la pantalla correcta se restaura desde el hash.
 
-El buscador del encabezado abre la paleta de comandos con `Ctrl + K` o `Cmd + K`. Permite buscar y saltar a cualquier pantalla.
-
-El botón de campana muestra el número de alertas. El selector de tema permite elegir modo claro, oscuro o del sistema, y acento de color.
+- **Paleta de comandos:** use el atajo `Ctrl + K` o `Cmd + K` para abrir la paleta de comandos. Escriba el nombre de una pantalla para buscarla y abrirla.
+- **Campana de alertas:** muestra el número de alertas.
+- **Selector de tema:** permite elegir modo claro, modo oscuro o tema del sistema, y cambiar el acento de color.
 
 ## 3. Pantallas
 
@@ -47,10 +47,10 @@ Toda la interfaz consume los datos que sirve la API. El volumen servido es sint�
 ## 4. Filtros y acciones
 
 - **Zonas:** seleccione zona, mes de análisis y criterio de ordenamiento. El ranking y los indicadores se recalculan al cambiar el mes.
-- **Medidores:** búsqueda por ID, serie, marca, RPU o servicio; filtros por zona, marca y estado; vistas de lista y cuadrícula; paginación.
+- **Medidores:** busque un medidor por ID, serie, marca, RPU o servicio en el campo de búsqueda. Los filtros son por zona, marca y estado. Puede cambiar entre vista de lista y cuadrícula.
 - **Calendario:** navegue por año y seleccione meses. Al abrir un día se muestran temperatura, tipo de día y factor estacional.
 - **Análisis energético:** seleccione un medidor. La zona, el servicio y el RPU se cargan de forma automática.
-- **Historial de lecturas:** filtre por medidor y rango; exporte el resultado a CSV.
+- **Historial de lecturas:** filtre por medidor y rango de fechas, y pulse **Exportar CSV** para descargar las lecturas. Use **Detectar huecos** para ver los intervalos sin lectura.
 - **Alertas y tarifas:** revise prioridad, estado y servicios asignados.
 
 Los controles tienen un área táctil mínima de 40 px y etiquetas accesibles. Las tablas y listas conservan el foco de teclado al actualizarse.

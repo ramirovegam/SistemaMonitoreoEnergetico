@@ -413,7 +413,7 @@ La presentación de defensa es la copia corregida de Canva `DAHb7o_LRYc`. El PPT
 
 ## 15. Asistente plus con LLM
 
-Módulo informativo y desacoplado. El LLM solo redacta; los números los calcula `backend/app/services/estadisticas.py` con `SELECT` contra las vistas `datamart.dm_*` y tablas `energia` permitidas. El modelo no recibe la conexión a la base: elige herramientas declaradas y Python ejecuta la consulta validada. El usuario puede pedir SQL de solo lectura mediante `ejecutar_sql_lectura`; están prohibidas la escritura, los comentarios, las múltiples sentencias y cualquier cambio de tablas o esquema. No se agregó ninguna dependencia nueva de Python: el cliente usa `urllib.request` de la biblioteca estándar.
+Módulo informativo y desacoplado. El backend elige las herramientas y `backend/app/services/estadisticas.py` calcula los números con `SELECT` contra las vistas `datamart.dm_*` y tablas `energia` permitidas. El modelo solo redacta: no recibe la conexión a la base. El usuario puede pedir SQL de solo lectura mediante `ejecutar_sql_lectura`; están prohibidas la escritura, los comentarios, las múltiples sentencias y cualquier cambio de tablas o esquema. El cliente usa `urllib.request` de la biblioteca estándar.
 
 ### 15.1 Variables de entorno
 
@@ -485,7 +485,7 @@ La interfaz queda en `#/asistente`. Los botones rápidos son atajos opcionales; 
 
 ### 15.4 Consumo de tokens y documentación
 
-El redactor dejó de recibir el glosario completo: usa `REDACTOR_REDUCIDO`, de 460 caracteres, y un resumen del payload de hasta 4,000 caracteres con cinco filas por herramienta. Las respuestas locales no consumen tokens del proveedor. Tiempos medidos después del cambio: `Hola` 67 ms, `¿Qué puedes hacer?` 27 ms, `¿Qué significa Tarifa DAC?` 17 ms. Las consultas con datos siguen usando dos llamadas como máximo: una de planeación solo cuando la pregunta no es nominal, y una de redacción.
+El redactor de datos usa `REDACTOR_REDUCIDO` y un resumen del payload de hasta 4,000 caracteres con cinco filas por herramienta. Las respuestas locales no consumen tokens del proveedor. Tiempos medidos después del cambio: `Hola` 67 ms, `¿Qué puedes hacer?` 27 ms, `¿Qué significa Tarifa DAC?` 17 ms. Las consultas con datos tienen planificación local y como máximo una llamada de redacción.
 
 El manual de uso, la guía rápida y 21 capturas están en `docs/manual_usuario`:
 
@@ -501,3 +501,15 @@ No había servidor MCP `chrome-devtools` disponible. La revisión visual se hizo
 Los tokens de `src/index.css` usan cinco señales vibrantes: naranja `#FF7A00` (principal, igual al logo), verde `#00C853`, azul `#0088FF`, violeta `#7C3AED` y turquesa `#00B8D9`. Alimentan `--chart-1` a `--chart-5`, el selector de acento, las barras de progreso y los rellenos de estado (`--success-fill`, `--warning-fill`, `--info-fill`, `--violet-fill`). Las variantes de texto sobre fondos claros son `#A84A00`, `#0E7A43`, `#005BB5`, `#5B21B6` y `#006B82`, todas con contraste AA verificado. El naranja, verde, azul y turquesa llevan texto `--ink` encima; el violeta lleva blanco. El rojo de `--danger-fill` se conserva por semántica de error y no forma parte de la paleta de datos.
 
 Los identificadores internos del selector siguen siendo `orange`, `lime`, `cyan`, `violet` y `teal` para no romper preferencias guardadas en `localStorage`; las etiquetas visibles son Naranja, Esmeralda, Azul eléctrico, Violeta y Turquesa.
+
+### 15.6 Búsqueda documental (RAG)
+
+El asistente puede responder preguntas sobre navegación y uso del panel con secciones revisadas del [manual](MANUAL_USUARIO.md) y del [corpus operativo](docs/base_conocimiento/CORPUS_OPERATIVO_SIMET.md). Las consultas de cifras, gráficas y estimaciones siguen pasando por las herramientas de PostgreSQL de solo lectura.
+
+1. En el entorno de Python del backend, instala las dependencias de CPU con `python -m pip install -r requirements-rag.txt` (o `uv pip install --python ven/bin/python -r requirements-rag.txt`).
+2. Desde la raíz ejecuta `python -m backend.app.services.rag`. La primera ejecución descarga la revisión fijada de `Qwen/Qwen3-Embedding-0.6B` de Hugging Face. Genera `~/.local/share/simet/rag/indice-cpu.npz` (respeta `XDG_DATA_HOME`). Puedes cambiar el destino con `SIMET_RAG_INDEX`. Si esa variable apunta al índice anterior de Ollama, elige un archivo nuevo. Repite este paso si cambian los documentos o el modelo.
+3. En `.env`, activa `SIMET_RAG_ENABLED=1` y configura `CEREBRAS_API_KEY`. `CEREBRAS_MODEL` es opcional; el valor predeterminado es `qwen-3.8-27b`. Reinicia la API y prueba en `#/asistente`: «¿Dónde puedo descargar a CSV las mediciones de un medidor?». Debe indicar el filtro por medidor y fechas, mostrar `#/lecturas` y citar el manual.
+
+La búsqueda usa Sentence Transformers en CPU, con el modelo en caché local. Cerebras recibe la pregunta documental y hasta tres pasajes recuperados; las citas y rutas salen del índice. Si no hay pasajes relevantes, se responde sin llamar a Cerebras. Si falla la búsqueda semántica se usa coincidencia textual; si falla la redacción (también cuando Cerebras requiere créditos), se muestra el pasaje original con su fuente. El RAG no necesita Ollama; el redactor de cifras conserva su configuración `LLM_*`.
+
+Con la API activa y el índice generado, ejecuta `SIMET_RAG_EVAL=1 python -m unittest discover -s tests -p test_rag.py`. Las pruebas cubren la recuperación en español y las consultas documentales, del glosario y de datos. Añade `SIMET_RAG_EXIGIR_CEREBRAS=1` para exigir una respuesta redactada por Cerebras en la prueba de exportación.

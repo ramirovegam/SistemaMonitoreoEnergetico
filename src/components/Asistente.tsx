@@ -535,6 +535,7 @@ function TarjetaRespuesta({
     () => construirGrafica(respuesta ?? null),
     [respuesta],
   );
+  const usaFuenteLocal = respuesta?.modo !== "datos" && respuesta?.metodo !== "búsqueda documental";
   const sugerenciasSiguientes =
     respuesta?.modo === "datos"
       ? ["Explícame la fuente de estos datos", "Calcula el factor de carga del sistema"]
@@ -628,7 +629,7 @@ function TarjetaRespuesta({
                 />
                 Fuentes verificadas
                 <span className="ml-auto text-[10px] text-muted-2">
-                  {respuesta.fuentes.length || (respuesta.modo !== "datos" ? 1 : 0)}
+                  {respuesta.fuentes.length || (usaFuenteLocal ? 1 : 0)}
                 </span>
               </summary>
               <div className="flex flex-wrap gap-1.5 border-t border-border px-3 py-2">
@@ -641,13 +642,13 @@ function TarjetaRespuesta({
                       {fuente}
                     </span>
                   ))
-                ) : respuesta.modo !== "datos" ? (
+                ) : usaFuenteLocal ? (
                   <span className="text-[10px] text-muted-2">
                     Base de Conocimiento SIMET
                   </span>
                 ) : (
                   <span className="text-[10px] text-muted-2">
-                    Sin fuentes de datos en esta respuesta
+                    Sin fuentes verificadas en esta respuesta
                   </span>
                 )}
               </div>
