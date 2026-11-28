@@ -4,6 +4,8 @@ Panel web para monitorear el consumo eléctrico de una ciudad inteligente. Muest
 
 Proyecto de la materia *Tópicos de Tecnologías de Datos* (UAEMéx). El panel no genera datos: **los consume**. Los produce el data engine del proyecto HyperDataSynthetic y este repositorio es la capa de aplicación que los hace legibles.
 
+Para instalar SIMET en otro equipo, sigue la [puesta en marcha completa](#4-puesta-en-marcha) de PostgreSQL, la API, el panel y el asistente con RAG.
+
 Documentación adicional: [Manual de usuario](MANUAL_USUARIO.md), [Documentación técnica](DOCUMENTACION_TECNICA.md), [Guía de explotación BI](docs/bi/GUIA_BI.md), [verificación de datos](docs/evidencia/verificacion_datos.sql) y entregables DOCX/PDF en `entregables/`.
 
 Presentación de la primera entrega, 51 diapositivas: [versión HTML](https://www.canva.com/design/DAHVsrHdw5Y/qyx19e2tr4fa1vqefyudrg/edit) · archivo autocontenido en `C:\Users\mateo\Documents\HSD_Deck.html` (ábrelo en navegador; flechas/espacio para navegar, `E` para editar texto). Respaldo editable en Canva: https://www.canva.com/design/DAHVsrHdw5Y/qyx19e2tr4fa1vqefyudrg/edit
@@ -52,7 +54,7 @@ Navegador
        -> HTTP/JSON
   -> Backend:  Python + FastAPI + SQLAlchemy 2                 http://127.0.0.1:8000
        -> SQL (psycopg 3)
-  -> PostgreSQL 16, esquema `energia`
+   -> PostgreSQL, esquemas `energia` y `datamart`
 ```
 
 Frontend y backend son procesos independientes. El frontend no toca la base nunca: pide JSON a la API y la API es la única que conoce las credenciales. La URL base del backend sale de `VITE_API_URL`.
@@ -63,64 +65,194 @@ No se usa una librería de router. `src/navigation.ts` define `PAGE_ROUTES`, `ge
 
 ## 3. Requisitos
 
-- Python 3.10 o superior
-- Node.js 20.19 o superior (lo exige Vite 8)
-- PostgreSQL 16 con el esquema `energia` ya poblado (ver sección 1)
+- **Git**, **Python 3.14 de 64 bits** (versión usada en las comprobaciones) y **Node.js 22.12 o posterior** con npm.
+- **PostgreSQL** con `psql`, `pg_dump` y `pg_restore` en el `PATH`. Para restaurar una copia, usa PostgreSQL de la misma versión mayor que el servidor de origen o posterior. **PostgreSQL 18** es la versión usada para validar esta guía.
+- Conexión a internet para instalar dependencias y descargar el modelo de embeddings de Hugging Face la primera vez. Para redactar con Cerebras se necesita una **API key con acceso a generación**. La búsqueda funciona en CPU, sin GPU ni Ollama.
 
 ---
 
 ## 4. Puesta en marcha
 
-### 4.1 Base de datos
+Estos pasos instalan todos los componentes en **el mismo equipo de destino**, con PostgreSQL en `127.0.0.1:5432`. Si tu servidor usa otro puerto, sustitúyelo en los comandos y en **las dos URL de PostgreSQL** del `.env`.
 
-Hay dos caminos y conviene saber cuál se está usando.
+### 4.1 Obtener el código
 
-**Camino A — datos canónicos del data engine (recomendado).** Clonar el data engine y seguir su README: aplica `database/sql/01_esquema.sql`, después `database/sql/02_catalogos.sql`, genera los perfiles de carga y ejecuta `python main.py` con su `.env` configurado. Al final quedan las 13 tablas con 10.8 millones de lecturas.
+Si `final2` está publicada y tienes acceso por SSH a GitHub, clona esa rama:
 
-**Camino B — datos de desarrollo.** Útil para trabajar en la interfaz sin cargar diez millones de filas. Sirve cualquier juego coherente de datos, pero debe respetar los tipos canónicos: `medidor.calidad_enlace` es un entero entre 50 y 100 (porcentaje), no una fracción de 0 a 1, y `perfil_carga_horaria.tipo_dia` vale `'H'`, `'S'` o `'D'`.
-
-### 4.2 Backend
-
-```powershell
-python -m venv ven
-.\ven\Scripts\Activate.ps1
-
-pip install -r requirements.txt
-
-# Crear .env en la raíz a partir de la plantilla
-Copy-Item .env.example .env
-
-python -m uvicorn backend.app.main:app --reload --port 8000
+```bash
+git clone --branch final2 git@github.com:ramirovegam/SistemaMonitoreoEnergetico.git
+cd SistemaMonitoreoEnergetico
 ```
 
-La API queda en http://127.0.0.1:8000 y Swagger en http://127.0.0.1:8000/docs.
+Si la rama solo está en el equipo de origen, genera un archivo con `git bundle create ../SIMET.bundle final2`, cópialo al destino y ejecuta:
 
-Los imports internos son relativos (`from ..database import ...`), así que el servidor se lanza **desde la raíz del repositorio**, no desde `backend/`.
-
-### 4.3 Frontend
-
-```powershell
-npm install
-npm run dev
+```bash
+git clone --branch final2 SIMET.bundle SistemaMonitoreoEnergetico
+cd SistemaMonitoreoEnergetico
 ```
 
-Queda en http://localhost:8443. El servidor escucha en `0.0.0.0:8443` con `strictPort`, es decir, si el puerto está ocupado Vite falla en vez de buscar otro.
+El bundle transporta commits. Crea un `.env` nuevo en el destino; los datos de PostgreSQL se trasladan aparte y el índice del RAG se genera allí.
 
-### 4.4 Variables de entorno
+### 4.2 Preparar PostgreSQL y cargar los datos
 
-| Variable | Uso | Dónde se lee |
-|---|---|---|
-| `DATABASE_URL` | Cadena de conexión con el prefijo del driver. El backend no arranca sin ella. | `backend/app/database.py` |
-| `VITE_API_URL` | URL base de la API para el navegador. | `src/services/*.ts` |
+Enciende PostgreSQL y entra a `psql` como administrador. El ejemplo usa `postgres`; sustitúyelo si tu instalación usa otro usuario administrador. Si `energia_hsd` ya está poblada, conserva esa base: usa su dueño en lugar de `simet_app` en los pasos siguientes y crea `simet_asistente` solo si no existe. Luego salta al paso 4.3.
+
+```bash
+psql -h 127.0.0.1 -p 5432 -U postgres -d postgres
+```
+
+En `psql`, crea un usuario dueño de la base y otro para el asistente. `\password` pide cada contraseña de forma interactiva:
+
+```text
+CREATE ROLE simet_app LOGIN;
+\password simet_app
+CREATE ROLE simet_asistente LOGIN;
+\password simet_asistente
+CREATE DATABASE energia_hsd OWNER simet_app;
+\q
+```
+
+Elige **una** de las siguientes opciones para poblar la base nueva.
+
+**Opción A — Restaurar los datos del equipo de origen.** Si ya tienes `energia_hsd.backup` en formato personalizado de PostgreSQL, cópialo al destino. Para crear un respaldo nuevo, ejecuta esto en el **equipo de origen**, reemplazando `USUARIO_ORIGEN` por un usuario con acceso de lectura al esquema `energia`. Si ese servidor usa un socket Unix, pasa su directorio con `-h` en lugar de `127.0.0.1`.
+
+```bash
+pg_dump -h 127.0.0.1 -p 5432 -U USUARIO_ORIGEN -d energia_hsd --format=custom --schema=energia --file=energia_hsd.backup
+```
+
+En el **equipo de destino**, desde donde copiaste el archivo, restáuralo en la base vacía. Si no conoces la versión de origen, `pg_restore --list energia_hsd.backup` la indica en el encabezado.
+
+```bash
+pg_restore -h 127.0.0.1 -p 5432 -U simet_app -d energia_hsd --no-owner --no-privileges --single-transaction energia_hsd.backup
+```
+
+Así `simet_app` será propietario de los objetos cargados y no necesitas importar los roles del equipo de origen. El datamart se prepara en el paso 4.4.
+
+**Opción B — Generar los datos desde cero.** Desde la raíz, aplica el DDL y los catálogos de la copia incluida del data engine. El segundo archivo también carga los perfiles horarios.
+
+```bash
+psql -h 127.0.0.1 -p 5432 -U simet_app -d energia_hsd -v ON_ERROR_STOP=1 -f ENTREGA_FINAL/GENERADOR_HSD/database/sql/01_esquema.sql -f ENTREGA_FINAL/GENERADOR_HSD/database/sql/02_catalogos.sql
+```
+
+Crea `ENTREGA_FINAL/GENERADOR_HSD/.env` para el generador y sustituye la contraseña. Este archivo es independiente del `.env` de SIMET:
 
 ```env
-DATABASE_URL=postgresql+psycopg://usuario:password@localhost:5432/energia_hsd
-VITE_API_URL=http://127.0.0.1:8000
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_NAME=energia_hsd
+DB_USER=simet_app
+DB_PASSWORD="CONTRASEÑA_DE_SIMET_APP"
+DB_SCHEMA=energia
 ```
 
-`psql` no entiende el prefijo `+psycopg`; para la línea de comandos se quita: `postgresql://usuario:password@localhost:5432/energia_hsd`.
+Corre el generador en un entorno separado. **Linux/macOS:**
 
-`VITE_API_URL` se incrusta en el bundle al compilar. Cambiarla exige reiniciar Vite o reconstruir.
+```bash
+cd ENTREGA_FINAL/GENERADOR_HSD
+python3.14 -m venv ven
+./ven/bin/python -m pip install -r requirements.txt
+./ven/bin/python main.py
+cd ../..
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd ENTREGA_FINAL/GENERADOR_HSD
+py -3.14 -m venv ven
+.\ven\Scripts\python.exe -m pip install -r requirements.txt
+.\ven\Scripts\python.exe main.py
+cd ../..
+```
+
+La corrida completa genera **10,800,000 lecturas** entre enero y marzo de 2026. Para una base de prueba más ligera, elige `main.py --demo` **en lugar** de la corrida completa (129,600 lecturas). Ejecuta el generador sobre la base nueva; `backend/sql/schema.sql` no contiene el DDL completo.
+
+### 4.3 Instalar el backend y configurar `.env`
+
+Desde la raíz de SIMET, **Linux/macOS**:
+
+```bash
+python3.14 -m venv ven
+./ven/bin/python -m pip install -r requirements.txt -r requirements-rag.txt
+cp -n .env.example .env
+chmod 600 .env
+```
+
+**Windows (PowerShell):**
+
+```powershell
+py -3.14 -m venv ven
+.\ven\Scripts\python.exe -m pip install -r requirements.txt -r requirements-rag.txt
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+En macOS, el paquete fijado de PyTorch requiere **Apple Silicon con macOS 14 o posterior**. Los comandos invocan el Python del entorno directamente; no hace falta activarlo.
+
+Edita el `.env` de la raíz con las contraseñas del paso 4.2 y tu clave de Cerebras:
+
+```env
+DATABASE_URL=postgresql+psycopg://simet_app:CLAVE_SIMET_APP@127.0.0.1:5432/energia_hsd
+ASISTENTE_DATABASE_URL=postgresql+psycopg://simet_asistente:CLAVE_SOLO_LECTURA@127.0.0.1:5432/energia_hsd
+VITE_API_URL=http://127.0.0.1:8000
+SIMET_RAG_ENABLED=1
+CEREBRAS_API_KEY=TU_CLAVE_DE_CEREBRAS
+CEREBRAS_MODEL=qwen-3.8-27b
+```
+
+La plantilla usa `5544` para el asistente; cámbialo a `5432` si seguiste el ejemplo. En las URL de PostgreSQL codifica los caracteres reservados de las contraseñas (por ejemplo, `@` como `%40`). `ASISTENTE_DATABASE_URL` es obligatoria para arrancar la API. `CEREBRAS_API_KEY` solo se usa en el backend; no la pongas en una variable `VITE_*` ni subas `.env` a Git.
+
+### 4.4 Crear el datamart, los permisos y el índice RAG
+
+Desde la raíz, ejecuta los siguientes comandos **en este orden**. La base ya debe tener el esquema `energia` poblado y `simet_asistente` debe existir con su propia contraseña.
+
+**Linux/macOS:**
+
+```bash
+./ven/bin/python create_datamart.py
+psql -h 127.0.0.1 -p 5432 -U simet_app -d energia_hsd -v ON_ERROR_STOP=1 -f docs/sql/asistente_readonly.sql
+./ven/bin/python -m backend.app.services.rag
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\ven\Scripts\python.exe create_datamart.py
+psql -h 127.0.0.1 -p 5432 -U simet_app -d energia_hsd -v ON_ERROR_STOP=1 -f docs/sql/asistente_readonly.sql
+.\ven\Scripts\python.exe -m backend.app.services.rag
+```
+
+El primer comando debe imprimir `DATAMART_CREATED`; el segundo concede lectura en `energia` y `datamart`. El tercero descarga el modelo de Hugging Face en la primera ejecución y genera el índice local; la versión actual indexa **23 pasajes de 1,024 dimensiones**. Regenera el índice si cambia el corpus o el modelo. Consulta la [sección del RAG](#156-búsqueda-documental-rag) para validar por separado la redacción en la nube.
+
+### 4.5 Arrancar la API y el frontend
+
+Abre **dos terminales en la raíz del repositorio**. En la primera, inicia FastAPI:
+
+```bash
+# Linux/macOS
+./ven/bin/python -m uvicorn backend.app.main:app --reload --reload-dir backend --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# Windows
+.\ven\Scripts\python.exe -m uvicorn backend.app.main:app --reload --reload-dir backend --host 127.0.0.1 --port 8000
+```
+
+En la segunda, instala el frontend con el lockfile e inicia Vite:
+
+```bash
+npm ci
+npm run dev -- --host 127.0.0.1
+```
+
+Si PowerShell bloquea el script de npm, usa `npm.cmd ci` y `npm.cmd run dev -- --host 127.0.0.1`.
+
+### 4.6 Comprobar que todo funciona
+
+1. Abre [la salud de la API](http://127.0.0.1:8000/health) y luego [el resumen del datamart](http://127.0.0.1:8000/api/datamart/resumen). Con la corrida completa, `total_lecturas` debe ser `10800000`.
+2. Abre el [panel de SIMET](http://localhost:8443) y entra al [Asistente](http://localhost:8443/#/asistente). Pregunta **«¿Dónde puedo descargar a CSV las mediciones de un medidor?»**. La respuesta debe citar el manual, indicar el filtro por medidor y fechas y mostrar `#/lecturas`. Con Cerebras operativo, la tarjeta muestra **Redacción LLM**. La API también se puede probar desde [Swagger](http://127.0.0.1:8000/docs).
+3. Pregunta **«¿Cuántas lecturas hay y con qué semilla se generó?»** para comprobar la conexión de solo lectura del asistente. Con el conjunto canónico, debe devolver 10,800,000 lecturas y citar `datamart.dm_resumen_general`.
+
+En arranques posteriores solo necesitas iniciar PostgreSQL, la API y Vite. Si cambias el `.env`, reinicia el proceso que lo usa.
 
 ---
 
@@ -261,37 +393,35 @@ Toda la interfaz consume datos reales de la API. No queda ningún componente ali
 
 ## 8. Comandos
 
-```powershell
-# Backend
-pip install -r requirements.txt
-python -m uvicorn backend.app.main:app --reload --port 8000
+Para instalar y arrancar el proyecto, sigue la [sección 4](#4-puesta-en-marcha). Desde la raíz, estos comandos comprueban y compilan el frontend; `npm run format` aplica el formateador del proyecto:
 
-# Frontend
-npm install
-npm run dev
+```powershell
+npx tsc --noEmit
 npm run build
-npm run format        # oxfmt
 ```
 
-En PowerShell corporativo `npm` puede estar bloqueado por la política de ejecución. En ese caso: `cmd /c npm run dev`.
+Pruebas locales del asistente RAG (con el entorno del backend activado):
 
-No hay pruebas automatizadas, linter ni integración continua. La verificación es manual:
-
-```powershell
-npx tsc --noEmit      # TypeScript, debe salir sin salida y con código 0
-npm run build         # build de producción
+```bash
+python -m unittest discover -s tests -p test_rag.py
 ```
+
+Las pruebas contra la API en ejecución se activan como indica la [sección 15.6](#156-búsqueda-documental-rag).
 
 ---
 
 ## 9. Verificación rápida de la conexión
 
-Si la API responde pero el panel muestra errores, el problema está en la cadena y se localiza en orden:
+| Síntoma | Qué revisar |
+|---|---|
+| `/health` no responde | Que Uvicorn se ejecute desde la raíz y que `.env` tenga `DATABASE_URL` y `ASISTENTE_DATABASE_URL`. |
+| `/api/zonas` devuelve 500 | Conexión de `simet_app`, puerto, contraseña y esquema `energia`. |
+| `/api/datamart/resumen` devuelve 500 | Ejecuta `create_datamart.py` sobre la misma base que usa la API. |
+| El chat no devuelve cifras | Prueba la conexión de `simet_asistente` y aplica `docs/sql/asistente_readonly.sql` después de crear las vistas. |
+| El chat avisa que el índice documental no está disponible | Activa `SIMET_RAG_ENABLED=1`, verifica la ruta `SIMET_RAG_INDEX` si la configuraste y genera el índice con el mismo usuario que inicia la API. |
+| El chat cita el manual y muestra **Verificación local** | La recuperación encontró el pasaje; mira el aviso para distinguir un fallo de embeddings de un rechazo de Cerebras. HTTP 402 indica un problema de facturación o créditos en la cuenta de la clave. |
 
-1. `http://127.0.0.1:8000/health` — si falla, el backend no arrancó o no encontró `DATABASE_URL`.
-2. `http://127.0.0.1:8000/api/zonas` — si falla con 500, la conexión a PostgreSQL o el esquema están mal.
-3. `http://127.0.0.1:8000/api/dashboard` — si falla aquí pero zonas funciona, faltan las tablas de hechos.
-4. Consola del navegador — si todo lo anterior responde, revisar CORS y `VITE_API_URL`.
+Si la API funciona pero no carga el panel, revisa `VITE_API_URL` y CORS. Cambiar `VITE_API_URL` requiere reiniciar Vite o reconstruir el frontend.
 
 CORS solo autoriza `http://localhost:8443`, `http://127.0.0.1:8443`, `http://localhost:5173` y `http://127.0.0.1:5173`. Cambiar el puerto del frontend obliga a editar `backend/app/main.py`, `vite.config.ts`, `.env.example` y este documento.
 
@@ -506,10 +636,24 @@ Los identificadores internos del selector siguen siendo `orange`, `lime`, `cyan`
 
 El asistente puede responder preguntas sobre navegación y uso del panel con secciones revisadas del [manual](MANUAL_USUARIO.md) y del [corpus operativo](docs/base_conocimiento/CORPUS_OPERATIVO_SIMET.md). Las consultas de cifras, gráficas y estimaciones siguen pasando por las herramientas de PostgreSQL de solo lectura.
 
-1. En el entorno de Python del backend, instala las dependencias de CPU con `python -m pip install -r requirements-rag.txt` (o `uv pip install --python ven/bin/python -r requirements-rag.txt`).
-2. Desde la raíz ejecuta `python -m backend.app.services.rag`. La primera ejecución descarga la revisión fijada de `Qwen/Qwen3-Embedding-0.6B` de Hugging Face. Genera `~/.local/share/simet/rag/indice-cpu.npz` (respeta `XDG_DATA_HOME`). Puedes cambiar el destino con `SIMET_RAG_INDEX`. Si esa variable apunta al índice anterior de Ollama, elige un archivo nuevo. Repite este paso si cambian los documentos o el modelo.
-3. En `.env`, activa `SIMET_RAG_ENABLED=1` y configura `CEREBRAS_API_KEY`. `CEREBRAS_MODEL` es opcional; el valor predeterminado es `qwen-3.8-27b`. Reinicia la API y prueba en `#/asistente`: «¿Dónde puedo descargar a CSV las mediciones de un medidor?». Debe indicar el filtro por medidor y fechas, mostrar `#/lecturas` y citar el manual.
+La instalación de `requirements-rag.txt`, la configuración de `SIMET_RAG_ENABLED` y `CEREBRAS_API_KEY`, y la generación inicial del índice forman parte de los [pasos 4.3 y 4.4](#43-instalar-el-backend-y-configurar-env). El modelo de redacción predeterminado es `qwen-3.8-27b`; `CEREBRAS_MODEL` permite indicar otro modelo disponible para tu clave con soporte de salida estructurada.
+
+El índice se guarda en `~/.local/share/simet/rag/indice-cpu.npz` por defecto (`$XDG_DATA_HOME/simet/rag/indice-cpu.npz` si está definido). Puedes elegir otra ruta en `SIMET_RAG_INDEX`. Si vienes de la versión de Ollama, genera el índice de CPU en un archivo nuevo. Para regenerarlo, ejecuta `python -m backend.app.services.rag` desde la raíz con el entorno del backend.
 
 La búsqueda usa Sentence Transformers en CPU, con el modelo en caché local. Cerebras recibe la pregunta documental y hasta tres pasajes recuperados; las citas y rutas salen del índice. Si no hay pasajes relevantes, se responde sin llamar a Cerebras. Si falla la búsqueda semántica se usa coincidencia textual; si falla la redacción (también cuando Cerebras requiere créditos), se muestra el pasaje original con su fuente. El RAG no necesita Ollama; el redactor de cifras conserva su configuración `LLM_*`.
 
-Con la API activa y el índice generado, ejecuta `SIMET_RAG_EVAL=1 python -m unittest discover -s tests -p test_rag.py`. Las pruebas cubren la recuperación en español y las consultas documentales, del glosario y de datos. Añade `SIMET_RAG_EXIGIR_CEREBRAS=1` para exigir una respuesta redactada por Cerebras en la prueba de exportación.
+Para comprobar el recorrido completo con **la base canónica de 10.8 millones de lecturas** y la API activa, ejecuta lo siguiente. `SIMET_RAG_EXIGIR_CEREBRAS=1` hace fallar la prueba si la consulta de exportación usa el fragmento local en vez del redactor en la nube; omítelo si solo quieres comprobar la recuperación y el respaldo.
+
+**Linux/macOS:**
+
+```bash
+SIMET_RAG_EVAL=1 SIMET_RAG_EXIGIR_CEREBRAS=1 ./ven/bin/python -m unittest discover -s tests -p test_rag.py
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:SIMET_RAG_EVAL = '1'
+$env:SIMET_RAG_EXIGIR_CEREBRAS = '1'
+.\ven\Scripts\python.exe -m unittest discover -s tests -p test_rag.py
+```
